@@ -7,7 +7,7 @@ const {
 } = require('forta-agent');
 const { default: axios } = require('axios');
 const LRU = require('lru-cache');
-const { nonceThreshold, etherscanApis } = require('../bot-config.json');
+const { nonceThreshold, contractTxsThreshold, etherscanApis } = require('../bot-config.json');
 const { ERC_20_721_INTERFACE, ERC_1155_INTERFACE } = require('./utils');
 const AddressType = require('./address-type');
 
@@ -91,34 +91,59 @@ function createApprovalForAllAlert(spender, owner, asset) {
   });
 }
 
-function getEtherscanUrl(address, chainId) {
-  const { url, key } = etherscanApis[chainId];
-  return `${url}&address=${address}&apikey=${key}`;
+function getEtherscanContractUrl(address, chainId) {
+  const { urlContract, key } = etherscanApis[chainId];
+  return `${urlContract}&address=${address}&apikey=${key}`;
+}
+
+function getEtherscanAddressUrl(address, chainId) {
+  const { urlAccount, key } = etherscanApis[chainId];
+  return `${urlAccount}&address=${address}&startblock=0&endblock=99999999&page=1&offset=10&sort=asc&apikey=${key}`;
 }
 
 async function getEoaType(address, blockNumber) {
-  const nonce = await getEthersProvider().getTransactionCount(address, blockNumber);
-  return (nonce > nonceThreshold)
+  const nonce = await getEthersProvider().getTransactionCount(
+    address,
+    blockNumber,
+  );
+  return nonce > nonceThreshold
     ? AddressType.EoaWithHighNonce
     : AddressType.EoaWithLowNonce;
 }
 
 async function getContractType(address, chainId) {
-  const result = await axios.get(getEtherscanUrl(address, chainId));
-
+  let result;
+  result = await axios.get(getEtherscanContractUrl(address, chainId));
   if (result.data.message === 'NOTOK') {
     console.log(`rate limit reached; skipping check for ${address}`);
     return null;
   }
 
-  const isVerified = (result.data.status === '1');
+  const isVerified = result.data.status === '1';
 
-  return (isVerified)
-    ? AddressType.VerifiedContract
+  if (isVerified) {
+    return AddressType.VerifiedContract;
+  }
+
+  result = await axios.get(getEtherscanAddressUrl(address, chainId));
+  if (result.data.message === 'NOTOK') {
+    console.log(`rate limit reached; skipping check for ${address}`);
+    return null;
+  }
+  const hasHighNumberOfTotalTxs =
+    result.data.result.length > contractTxsThreshold;
+  return hasHighNumberOfTotalTxs
+    ? AddressType.HighNumTxsUnverifiedContract
     : AddressType.UnverifiedContract;
 }
 
-async function getAddressType(address, cachedAddresses, blockNumber, chainId, isOwner) {
+async function getAddressType(
+  address,
+  cachedAddresses,
+  blockNumber,
+  chainId,
+  isOwner,
+) {
   if (cachedAddresses.has(address)) {
     const type = cachedAddresses.get(address);
 
@@ -135,9 +160,10 @@ async function getAddressType(address, cachedAddresses, blockNumber, chainId, is
       return type;
     }
 
-    const getTypeFn = (type === AddressType.EoaWithLowNonce)
-      ? async () => getEoaType(address, blockNumber)
-      : async () => getContractType(address, chainId);
+    const getTypeFn =
+      type === AddressType.EoaWithLowNonce
+        ? async () => getEoaType(address, blockNumber)
+        : async () => getContractType(address, chainId);
     const newType = await getTypeFn(address, blockNumber);
 
     if (newType && newType !== type) cachedAddresses.set(address, newType);
@@ -146,12 +172,12 @@ async function getAddressType(address, cachedAddresses, blockNumber, chainId, is
 
   // If the address is not in the cache check if it is a contract
   const code = await getEthersProvider().getCode(address);
-  const isEoa = (code === '0x');
+  const isEoa = code === '0x';
 
   // Skip etherscan call and directly return unverified if checking for the owner
   if (isOwner && !isEoa) return AddressType.UnverifiedContract;
 
-  const getTypeFn = (isEoa)
+  const getTypeFn = isEoa
     ? async () => getEoaType(address, blockNumber)
     : async () => getContractType(address, chainId);
   const type = await getTypeFn(address, blockNumber);
