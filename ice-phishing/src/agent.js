@@ -2,36 +2,43 @@ const { ethers, getEthersProvider } = require('forta-agent');
 const LRU = require('lru-cache');
 
 const {
-  createHighNumApprovalsAlert,
+  createHighNumApprovalsAlertERC20,
+  createHighNumApprovalsAlertERC721,
   createHighNumTransfersAlert,
-  createApprovalForAllAlert,
+  createApprovalForAllAlertERC721,
+  createApprovalForAllAlertERC1155,
+  createPermitAlert,
   getAddressType,
+  getBalance,
+  getERC1155Balance,
 } = require('./helper');
 const {
   approveCountThreshold,
+  approveForAllCountThreshold,
   transferCountThreshold,
-  timePeriodDays,
   maxAddressAlertsPerPeriod,
 } = require('../bot-config.json');
+const {
+  TIME_PERIOD,
+  ADDRESS_ZERO,
+  safeBatchTransferFrom1155Sig,
+  permitFunctionABI,
+  daiPermitFunctionABI,
+  approvalEventErc20ABI,
+  approvalEventErc721ABI,
+  approvalForAllEventABI,
+  transferEventErc20ABI,
+  transferEventErc721ABI,
+  erc1155transferEventABI,
+} = require('./utils');
 const AddressType = require('./address-type');
 
-const ONE_DAY = 24 * 60 * 60;
-const TIME_PERIOD = timePeriodDays * ONE_DAY;
-const ADDRESS_ZERO = ethers.constants.AddressZero;
-
-const approvalEventSigErc20 = 'event Approval(address indexed owner, address indexed spender, uint256 value)';
-const approvalEventSigErc721 = 'event Approval(address indexed owner, address indexed spender, uint256 indexed tokenId)';
-const approvalForAllEventSig = 'event ApprovalForAll(address indexed owner, address indexed spender, bool approved)';
-
-const transferEventSigErc20 = 'event Transfer(address indexed from, address indexed to, uint256 value)';
-const transferEventSigErc721 = 'event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)';
-
-const erc1155transferEventSigs = [
-  'event TransferSingle(address indexed operator, address indexed from, address indexed to, uint256 tokenId, uint256 value)',
-  'event TransferBatch(address indexed operator, address indexed from, address indexed to, uint256[] tokenIds, uint256[] values)',
-];
-
 const approvals = {};
+const approvalsERC20 = {};
+const approvalsERC721 = {};
+const approvalsForAll721 = {};
+const approvalsForAll1155 = {};
+const permissions = {};
 const transfers = {};
 
 // Every address is ~100B
@@ -58,15 +65,15 @@ const handleTransaction = async (txEvent) => {
   // ERC20 and ERC721 approvals and transfers have the same signature
   // so we need to collect them seperately
   const approvalEvents = [
-    ...txEvent.filterLog(approvalEventSigErc20),
-    ...txEvent.filterLog(approvalEventSigErc721),
-    ...txEvent.filterLog(approvalForAllEventSig),
+    ...txEvent.filterLog(approvalEventErc20ABI),
+    ...txEvent.filterLog(approvalEventErc721ABI),
+    ...txEvent.filterLog(approvalForAllEventABI),
   ];
 
   const transferEvents = [
-    ...txEvent.filterLog(transferEventSigErc20),
-    ...txEvent.filterLog(transferEventSigErc721),
-    ...txEvent.filterLog(erc1155transferEventSigs),
+    ...txEvent.filterLog(transferEventErc20ABI),
+    ...txEvent.filterLog(transferEventErc721ABI),
+    ...txEvent.filterLog(erc1155transferEventABI),
   ];
 
   // Don't process transfer events if there are no approvals
