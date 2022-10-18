@@ -76,10 +76,6 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
     ...txEvent.filterLog(erc1155transferEventABI),
   ];
 
-  // Don't process transfer events if there are no approvals
-  // Both ERC20 and ERC721 emit Approve on transferFrom
-  if (approvalEvents.length === 0) return findings;
-
   await Promise.all(
     approvalEvents.map(async (event) => {
       const { address: asset, name } = event;
