@@ -3,10 +3,12 @@ const {
   FindingSeverity,
   FindingType,
   getEthersProvider,
+  ethers,
 } = require('forta-agent');
 const { default: axios } = require('axios');
-
+const LRU = require('lru-cache');
 const { nonceThreshold, etherscanApis } = require('../bot-config.json');
+const { ERC_20_721_INTERFACE, ERC_1155_INTERFACE } = require('./utils');
 const AddressType = require('./address-type');
 
 // Computes the data needed for an alert
@@ -158,9 +160,43 @@ async function getAddressType(address, cachedAddresses, blockNumber, chainId, is
   return type;
 }
 
+const cachedBalances = new LRU({ max: 100_000 });
+
+async function getBalance(token, account, provider, blockNumber) {
+  const key = `${account}-${token}-${blockNumber}`;
+  if (cachedBalances.has(key)) return cachedBalances.get(key);
+  const tokenContract = new ethers.Contract(
+    token,
+    ERC_20_721_INTERFACE,
+    provider,
+  );
+  const balance = await tokenContract.balanceOf(account, {
+    blockTag: blockNumber,
+  });
+  cachedBalances.set(key, balance);
+  return balance;
+}
+
+async function getERC1155Balance(token, id, account, provider, blockNumber) {
+  const key = `${account}-${token} -${id}-${blockNumber}`;
+  if (cachedBalances.has(key)) return cachedBalances.get(key);
+  const tokenContract = new ethers.Contract(
+    token,
+    ERC_1155_INTERFACE,
+    provider,
+  );
+  const balance = await tokenContract.balanceOf(account, id, {
+    blockTag: blockNumber,
+  });
+  cachedBalances.set(key, balance);
+  return balance;
+}
+
 module.exports = {
   createHighNumApprovalsAlert,
   createHighNumTransfersAlert,
   createApprovalForAllAlert,
   getAddressType,
+  getBalance,
+  getERC1155Balance,
 };
