@@ -363,6 +363,7 @@ const handleBlock = async (blockEvent) => {
   if (timestamp - lastTimestamp > TIME_PERIOD) {
     console.log('Cleaning');
     console.log(`Approvals before: ${Object.keys(approvals).length}`);
+    console.log(`Permissions before: ${Object.keys(permissions).length}`);
     console.log(`Transfers before: ${Object.keys(transfers).length}`);
 
     Object.entries(approvals).forEach(([spender, data]) => {
@@ -371,6 +372,47 @@ const handleBlock = async (blockEvent) => {
       if (timestamp - data[length - 1].timestamp > TIME_PERIOD) {
         delete approvals[spender];
       }
+    });
+
+    Object.entries(approvalsERC20).forEach(([spender, data]) => {
+      const { length } = data;
+      // Clear the approvals if the last approval for a spender is more than timePeriodDays ago
+      if (timestamp - data[length - 1].timestamp > TIME_PERIOD) {
+        delete approvalsERC20[spender];
+      }
+    });
+
+    Object.entries(approvalsERC721).forEach(([spender, data]) => {
+      const { length } = data;
+      // Clear the approvals if the last approval for a spender is more than timePeriodDays ago
+      if (timestamp - data[length - 1].timestamp > TIME_PERIOD) {
+        delete approvalsERC721[spender];
+      }
+    });
+
+    Object.entries(approvalsForAll721).forEach(([spender, data]) => {
+      const { length } = data;
+      // Clear the approvals if the last approval for a spender is more than timePeriodDays ago
+      if (timestamp - data[length - 1].timestamp > TIME_PERIOD) {
+        delete approvalsForAll721[spender];
+      }
+    });
+
+    Object.entries(approvalsForAll1155).forEach(([spender, data]) => {
+      const { length } = data;
+      // Clear the approvals if the last approval for a spender is more than timePeriodDays ago
+      if (timestamp - data[length - 1].timestamp > TIME_PERIOD) {
+        delete approvalsForAll1155[spender];
+      }
+    });
+
+    Object.entries(permissions).forEach(([spender, data]) => {
+      Object.entries(data).forEach((d) => {
+      // Clear the permission if it has expired
+        if (timestamp > d.deadline) {
+          delete permissions[spender][d];
+        }
+      });
     });
 
     Object.entries(transfers).forEach(([spender, data]) => {
@@ -382,6 +424,7 @@ const handleBlock = async (blockEvent) => {
     });
 
     console.log(`Approvals after: ${Object.keys(approvals).length}`);
+    console.log(`Permissions after: ${Object.keys(permissions).length}`);
     console.log(`Transfers after: ${Object.keys(transfers).length}`);
 
     // Reset ignored addresses
