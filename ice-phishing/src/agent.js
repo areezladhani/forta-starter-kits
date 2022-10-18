@@ -289,54 +289,67 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
     })
   );
 
-  transferEvents.forEach((event) => {
-    const asset = event.address;
-    const {
-      from,
-      tokenId,
-      tokenIds,
-    } = event.args;
+  await Promise.all(
+    transferEvents.map(async (event) => {
+      const asset = event.address;
+      const { from, tokenId, tokenIds } = event.args;
 
-    // Filter out direct transfers and mints
-    if (from === txFrom || from === ADDRESS_ZERO) return;
+      // Filter out direct transfers and mints
+      if (from === txFrom || from === ADDRESS_ZERO) return;
 
-    // Check if we monitor the spender
-    const spenderApprovals = approvals[txFrom];
-    if (!spenderApprovals) return;
+      // Check if we monitor the spender
+      const spenderApprovals = approvals[txFrom];
+      const spenderPermissions = permissions[txFrom];
+      if (!spenderApprovals && !spenderPermissions) return;
 
-    // Check if we have caught the approval
-    // For ERC20: Check if there is an approval from the owner that isn't from the current tx
-    // For ERC721: Check if the tokenId is approved or if there is an ApprovalForAll
-    const hasMonitoredApproval = (tokenId)
-      ? spenderApprovals.filter((a) => a.owner === from)
-        .some((a) => a.isApprovalForAll || a.tokenId.eq(tokenId) || tokenIds?.includes(a.tokenId))
-      : spenderApprovals.find((a) => a.owner === from)?.timestamp < timestamp;
+      // Check if we have caught the approval
+      // For ERC20: Check if there is an approval from the owner that isn't from the current tx
+      // For ERC721: Check if the tokenId is approved or if there is an ApprovalForAll
+      const hasMonitoredApproval = tokenId
+        ? spenderApprovals
+          .filter((a) => a.owner === from)
+          .some(
+            (a) => a.isApprovalForAll ||
+                a.tokenId.eq(tokenId) ||
+                tokenIds?.includes(a.tokenId),
+          )
+        : spenderApprovals.find((a) => a.owner === from && a.asset === asset)
+          ?.timestamp < timestamp;
 
-    if (!hasMonitoredApproval) return;
+      if (!hasMonitoredApproval) return;
 
-    // Initialize the transfers array for the spender if it doesn't exist
-    if (!transfers[txFrom]) transfers[txFrom] = [];
+      // Initialize the transfers array for the spender if it doesn't exist
+      if (!transfers[txFrom]) transfers[txFrom] = [];
 
-    console.log('Detected possible malicious transfer of approved assets');
-    console.log(`owner: ${from}`);
-    console.log(`spender: ${txFrom}`);
-    console.log(`asset: ${asset}`);
+      console.log("Detected possible malicious transfer of approved assets");
+      console.log(`owner: ${from}`);
+      console.log(`spender: ${txFrom}`);
+      console.log(`asset: ${asset}`);
 
-    // Update the transfers for the spender
-    transfers[txFrom].push({
-      asset,
-      owner: from,
-      hash,
-      timestamp,
-    });
+      // Update the transfers for the spender
+      transfers[txFrom].push({
+        asset,
+        owner: from,
+        hash,
+        timestamp,
+      });
 
-    // Filter out old transfers
-    transfers[txFrom] = transfers[txFrom].filter((a) => timestamp - a.timestamp < TIME_PERIOD);
+      // Filter out old transfers
+      transfers[txFrom] = transfers[txFrom].filter(
+        (a) => timestamp - a.timestamp < TIME_PERIOD,
+      );
 
-    if (transfers[txFrom].length > transferCountThreshold) {
-      findings.push(createHighNumTransfersAlert(txFrom, transfers[txFrom]));
-    }
-  });
+      if (transfers[txFrom].length > transferCountThreshold) {
+        if (!(tokenId || tokenIds)) {
+          const balance = ethers.BigNumber.from(
+            await getBalance(asset, from, provider, txEvent.blockNumber)
+          );
+          if (!balance.eq(0)) return;
+        }
+        findings.push(createHighNumTransfersAlert(txFrom, transfers[txFrom]));
+      }
+    }),
+  );
 
   return findings;
 };
