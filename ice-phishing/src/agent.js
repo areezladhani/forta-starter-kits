@@ -62,6 +62,11 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
   } = txEvent;
   const txFrom = ethers.utils.getAddress(f);
 
+  const permitFunctions = [
+    ...txEvent.filterFunction(permitFunctionABI),
+    ...txEvent.filterFunction(daiPermitFunctionABI),
+  ];
+
   // ERC20 and ERC721 approvals and transfers have the same signature
   // so we need to collect them seperately
   const approvalEvents = [
@@ -75,6 +80,46 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
     ...txEvent.filterLog(transferEventErc721ABI),
     ...txEvent.filterLog(erc1155transferEventABI),
   ];
+
+  permitFunctions.map(async (func) => {
+    const { address: asset } = func;
+    const { owner, spender, deadline } = func.args;
+
+    const msgSenderType = await getAddressType(
+      txFrom,
+      cachedAddresses,
+      blockNumber,
+      chainId,
+      false,
+    );
+
+    const spenderType = await getAddressType(
+      spender,
+      cachedAddresses,
+      blockNumber,
+      chainId,
+      false,
+    );
+
+    if (
+      txFrom !== owner &&
+      spenderType ===
+        (AddressType.HighNumTxsUnverifiedContract ||
+          AddressType.EoaWithLowNonce) &&
+      msgSenderType ===
+        (AddressType.HighNumTxsUnverifiedContract ||
+          AddressType.EoaWithLowNonce)
+    ) {
+      if (!permissions[spender]) permissions[spender] = [];
+      permissions[spender].push({
+        asset,
+        owner,
+        hash,
+        deadline,
+      });
+      createPermitAlert(txFrom, spender, owner, asset);
+    }
+  });
 
   await Promise.all(
     approvalEvents.map(async (event) => {
