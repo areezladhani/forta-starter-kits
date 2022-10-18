@@ -32,62 +32,100 @@ function getEventInformation(eventsArray) {
   };
 }
 
-function createHighNumApprovalsAlert(spender, approvalsArray) {
-  const {
-    firstTxHash,
-    lastTxHash,
-    assets,
-    accounts,
-    days,
-  } = getEventInformation(approvalsArray);
+function createHighNumApprovalsAlertERC20(spender, approvalsArray) {
+  const { firstTxHash, lastTxHash, assets, accounts, days } =
+    getEventInformation(approvalsArray);
   return Finding.fromObject({
-    name: 'High number of accounts granted approvals for digital assets',
-    description: `${spender} obtained transfer approval for ${assets.length} assets by ${accounts.length} accounts over period of ${days} days.`,
-    alertId: 'ICE-PHISHING-HIGH-NUM-APPROVALS',
+    name: "High number of accounts granted approvals for ERC20 tokens",
+    description: `${spender} obtained transfer approval for ${assets.length} ERC20 tokens by ${accounts.length} accounts over period of ${days} days.`,
+    alertId: "ICE-PHISHING-HIGH-NUM-ERC20-APPROVALS",
     severity: FindingSeverity.Low,
     type: FindingType.Suspicious,
     metadata: {
       firstTxHash,
       lastTxHash,
-      assetsImpacted: assets,
     },
+    addresses: assets,
   });
 }
 
-function createHighNumTransfersAlert(spender, transfersArray) {
-  const {
-    firstTxHash,
-    lastTxHash,
-    assets,
-    accounts,
-    days,
-  } = getEventInformation(transfersArray);
+function createHighNumApprovalsAlertERC721(spender, approvalsArray) {
+  const { firstTxHash, lastTxHash, assets, accounts, days } =
+    getEventInformation(approvalsArray);
   return Finding.fromObject({
-    name: 'Previously approved assets transferred',
-    description: `${spender} transferred ${assets.length} assets from ${accounts.length} accounts over period of ${days} days.`,
-    alertId: 'ICE-PHISHING-HIGH-NUM-APPROVED-TRANSFERS',
-    severity: FindingSeverity.High,
-    type: FindingType.Exploit,
+    name: "High number of accounts granted approvals for ERC721 tokens",
+    description: `${spender} obtained transfer approval for ${assets.length} ERC721 tokens by ${accounts.length} accounts over period of ${days} days.`,
+    alertId: "ICE-PHISHING-HIGH-NUM-ERC721-APPROVALS",
+    severity: FindingSeverity.Low,
+    type: FindingType.Suspicious,
     metadata: {
       firstTxHash,
       lastTxHash,
-      assetsImpacted: assets,
     },
+    addresses: assets,
   });
 }
 
-function createApprovalForAllAlert(spender, owner, asset) {
+function createApprovalForAllAlertERC721(spender, owner, asset) {
   return Finding.fromObject({
-    name: 'Account got approval for all tokens',
-    description: `${spender} obtained transfer approval for all tokens from ${owner}`,
-    alertId: 'ICE-PHISHING-APPROVAL-FOR-ALL',
+    name: "Account got approval for all ERC721 tokens",
+    description: `${spender} obtained transfer approval for all ERC721 tokens from ${owner}`,
+    alertId: "ICE-PHISHING-ERC721-APPROVAL-FOR-ALL",
     severity: FindingSeverity.Low,
     type: FindingType.Suspicious,
     metadata: {
       spender,
       owner,
-      asset,
     },
+    addresses: [asset],
+  });
+}
+
+function createApprovalForAllAlertERC1155(spender, owner, asset) {
+  return Finding.fromObject({
+    name: "Account got approval for all ERC1155 tokens",
+    description: `${spender} obtained transfer approval for all ERC1155 tokens from ${owner}`,
+    alertId: "ICE-PHISHING-ERC1155-APPROVAL-FOR-ALL",
+    severity: FindingSeverity.Low,
+    type: FindingType.Suspicious,
+    metadata: {
+      spender,
+      owner,
+    },
+    addresses: [asset],
+  });
+}
+
+function createPermitAlert(msgSender, spender, owner, asset) {
+  return Finding.fromObject({
+    name: "Account got permission for ERC20 tokens",
+    description: `${msgSender} gave permission to ${spender} for ${owner}'s ERC20 tokens`,
+    alertId: "ICE-PHISHING-ERC20-PERMIT",
+    severity: FindingSeverity.Low,
+    type: FindingType.Suspicious,
+    metadata: {
+      msgSender,
+      spender,
+      owner,
+    },
+    addresses: [asset],
+  });
+}
+
+function createHighNumTransfersAlert(spender, transfersArray) {
+  const { firstTxHash, lastTxHash, assets, accounts, days } =
+    getEventInformation(transfersArray);
+  return Finding.fromObject({
+    name: "Previously approved assets transferred",
+    description: `${spender} transferred ${assets.length} assets from ${accounts.length} accounts over period of ${days} days.`,
+    alertId: "ICE-PHISHING-HIGH-NUM-APPROVED-TRANSFERS",
+    severity: FindingSeverity.High,
+    type: FindingType.Exploit,
+    metadata: {
+      firstTxHash,
+      lastTxHash,
+    },
+    addresses: assets,
   });
 }
 
@@ -219,9 +257,12 @@ async function getERC1155Balance(token, id, account, provider, blockNumber) {
 }
 
 module.exports = {
-  createHighNumApprovalsAlert,
+  createHighNumApprovalsAlertERC20,
+  createHighNumApprovalsAlertERC721,
   createHighNumTransfersAlert,
-  createApprovalForAllAlert,
+  createApprovalForAllAlertERC721,
+  createApprovalForAllAlertERC1155,
+  createPermitAlert,
   getAddressType,
   getBalance,
   getERC1155Balance,
