@@ -1,5 +1,5 @@
-const { ethers, getEthersProvider } = require('forta-agent');
-const LRU = require('lru-cache');
+const { ethers, getEthersProvider } = require("forta-agent");
+const LRU = require("lru-cache");
 
 const {
   createHighNumApprovalsAlertERC20,
@@ -11,13 +11,13 @@ const {
   getAddressType,
   getBalance,
   getERC1155Balance,
-} = require('./helper');
+} = require("./helper");
 const {
   approveCountThreshold,
   approveForAllCountThreshold,
   transferCountThreshold,
   maxAddressAlertsPerPeriod,
-} = require('../bot-config.json');
+} = require("../bot-config.json");
 const {
   TIME_PERIOD,
   ADDRESS_ZERO,
@@ -30,8 +30,8 @@ const {
   transferEventErc20ABI,
   transferEventErc721ABI,
   erc1155transferEventABI,
-} = require('./utils');
-const AddressType = require('./address-type');
+} = require("./utils");
+const AddressType = require("./address-type");
 
 const approvals = {};
 const approvalsERC20 = {};
@@ -54,12 +54,7 @@ const initialize = async () => {
 const provideHandleTransaction = (provider) => async (txEvent) => {
   const findings = [];
 
-  const {
-    hash,
-    timestamp,
-    blockNumber,
-    from: f,
-  } = txEvent;
+  const { hash, timestamp, blockNumber, from: f } = txEvent;
   const txFrom = ethers.utils.getAddress(f);
 
   const permitFunctions = [
@@ -85,30 +80,14 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
     const { address: asset } = func;
     const { owner, spender, deadline } = func.args;
 
-    const msgSenderType = await getAddressType(
-      txFrom,
-      cachedAddresses,
-      blockNumber,
-      chainId,
-      false,
-    );
+    const msgSenderType = await getAddressType(txFrom, cachedAddresses, blockNumber, chainId, false);
 
-    const spenderType = await getAddressType(
-      spender,
-      cachedAddresses,
-      blockNumber,
-      chainId,
-      false,
-    );
+    const spenderType = await getAddressType(spender, cachedAddresses, blockNumber, chainId, false);
 
     if (
       txFrom !== owner &&
-      spenderType ===
-        (AddressType.HighNumTxsUnverifiedContract ||
-          AddressType.EoaWithLowNonce) &&
-      msgSenderType ===
-        (AddressType.HighNumTxsUnverifiedContract ||
-          AddressType.EoaWithLowNonce)
+      spenderType === (AddressType.HighNumTxsUnverifiedContract || AddressType.EoaWithLowNonce) &&
+      msgSenderType === (AddressType.HighNumTxsUnverifiedContract || AddressType.EoaWithLowNonce)
     ) {
       if (!permissions[spender]) permissions[spender] = [];
       permissions[spender].push({
@@ -135,38 +114,20 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
 
       // When transfering ERC20 tokens an Approval event is emitted with lower value
       // We should ignore these Approval events because they are duplicates
-      const isAlreadyApproved = tokenId
-        ? false
-        : approvals[spender]?.some((a) => a.owner === owner);
+      const isAlreadyApproved = tokenId ? false : approvals[spender]?.some((a) => a.owner === owner);
 
       if (isAlreadyApproved) return;
 
       // Skip if the owner is not EOA
-      const ownerType = await getAddressType(
-        owner,
-        cachedAddresses,
-        blockNumber,
-        chainId,
-        true
-      );
-      if (
-        ownerType === AddressType.UnverifiedContract ||
-        ownerType === AddressType.VerifiedContract
-      )
-        return;
+      const ownerType = await getAddressType(owner, cachedAddresses, blockNumber, chainId, true);
+      if (ownerType === AddressType.UnverifiedContract || ownerType === AddressType.VerifiedContract) return;
 
       // Skip if the spender
       // has high nonce (probably CEX)
       // is verified contract
       // is unverified contracts with high number of txs
       // or is ignored address
-      const spenderType = await getAddressType(
-        spender,
-        cachedAddresses,
-        blockNumber,
-        chainId,
-        false
-      );
+      const spenderType = await getAddressType(spender, cachedAddresses, blockNumber, chainId, false);
       if (
         !spenderType ||
         spenderType === AddressType.EoaWithHighNonce ||
@@ -231,59 +192,31 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         isApprovalForAll,
       });
 
-      for (const _approvals of [
-        approvalsERC20,
-        approvalsERC721,
-        approvalsForAll721,
-        approvalsForAll1155,
-        approvals,
-      ]) {
+      for (const _approvals of [approvalsERC20, approvalsERC721, approvalsForAll721, approvalsForAll1155, approvals]) {
         if (!_approvals[spender]) continue;
-        _approvals[spender].filter(
-          (a) => timestamp - a.timestamp < TIME_PERIOD
-        );
+        _approvals[spender].filter((a) => timestamp - a.timestamp < TIME_PERIOD);
       }
 
       // Ignore the address until the end of the period if there are a lot of approvals
       if (approvals[spender].length > maxAddressAlertsPerPeriod) {
         const newType =
-          spenderType === AddressType.EoaWithLowNonce
-            ? AddressType.IgnoredEoa
-            : AddressType.IgnoredContract;
+          spenderType === AddressType.EoaWithLowNonce ? AddressType.IgnoredEoa : AddressType.IgnoredContract;
         cachedAddresses.set(spender, newType);
       }
 
-      if (
-        approvalsERC20[spender] &&
-        approvalsERC20[spender].length > approveCountThreshold
-      ) {
-        findings.push(
-          createHighNumApprovalsAlertERC20(spender, approvals[spender])
-        );
+      if (approvalsERC20[spender] && approvalsERC20[spender].length > approveCountThreshold) {
+        findings.push(createHighNumApprovalsAlertERC20(spender, approvals[spender]));
       }
 
-      if (
-        approvalsERC721[spender] &&
-        approvalsERC721[spender].length > approveCountThreshold
-      ) {
-        findings.push(
-          createHighNumApprovalsAlertERC721(spender, approvals[spender])
-        );
+      if (approvalsERC721[spender] && approvalsERC721[spender].length > approveCountThreshold) {
+        findings.push(createHighNumApprovalsAlertERC721(spender, approvals[spender]));
       }
 
       if (isApprovalForAll) {
-        if (
-          approvalsForAll721[spender] &&
-          approvalsForAll721[spender].length > approveForAllCountThreshold
-        ) {
+        if (approvalsForAll721[spender] && approvalsForAll721[spender].length > approveForAllCountThreshold) {
           findings.push(createApprovalForAllAlertERC721(spender, owner, asset));
-        } else if (
-          approvalsForAll1155[spender] &&
-          approvalsForAll1155[spender].length > approveForAllCountThreshold
-        ) {
-          findings.push(
-            createApprovalForAllAlertERC1155(spender, owner, asset)
-          );
+        } else if (approvalsForAll1155[spender] && approvalsForAll1155[spender].length > approveForAllCountThreshold) {
+          findings.push(createApprovalForAllAlertERC1155(spender, owner, asset));
         }
       }
     })
@@ -307,14 +240,9 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       // For ERC721: Check if the tokenId is approved or if there is an ApprovalForAll
       const hasMonitoredApproval = tokenId
         ? spenderApprovals
-          .filter((a) => a.owner === from)
-          .some(
-            (a) => a.isApprovalForAll ||
-                a.tokenId.eq(tokenId) ||
-                tokenIds?.includes(a.tokenId),
-          )
-        : spenderApprovals.find((a) => a.owner === from && a.asset === asset)
-          ?.timestamp < timestamp;
+            .filter((a) => a.owner === from)
+            .some((a) => a.isApprovalForAll || a.tokenId.eq(tokenId) || tokenIds?.includes(a.tokenId))
+        : spenderApprovals.find((a) => a.owner === from && a.asset === asset)?.timestamp < timestamp;
 
       if (!hasMonitoredApproval) return;
 
@@ -335,20 +263,16 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       });
 
       // Filter out old transfers
-      transfers[txFrom] = transfers[txFrom].filter(
-        (a) => timestamp - a.timestamp < TIME_PERIOD,
-      );
+      transfers[txFrom] = transfers[txFrom].filter((a) => timestamp - a.timestamp < TIME_PERIOD);
 
       if (transfers[txFrom].length > transferCountThreshold) {
         if (!(tokenId || tokenIds)) {
-          const balance = ethers.BigNumber.from(
-            await getBalance(asset, from, provider, txEvent.blockNumber)
-          );
+          const balance = ethers.BigNumber.from(await getBalance(asset, from, provider, txEvent.blockNumber));
           if (!balance.eq(0)) return;
         }
         findings.push(createHighNumTransfersAlert(txFrom, transfers[txFrom]));
       }
-    }),
+    })
   );
 
   return findings;
@@ -361,7 +285,7 @@ const handleBlock = async (blockEvent) => {
 
   // Clean the data every timePeriodDays
   if (timestamp - lastTimestamp > TIME_PERIOD) {
-    console.log('Cleaning');
+    console.log("Cleaning");
     console.log(`Approvals before: ${Object.keys(approvals).length}`);
     console.log(`Permissions before: ${Object.keys(permissions).length}`);
     console.log(`Transfers before: ${Object.keys(transfers).length}`);
@@ -408,7 +332,7 @@ const handleBlock = async (blockEvent) => {
 
     Object.entries(permissions).forEach(([spender, data]) => {
       Object.entries(data).forEach((d) => {
-      // Clear the permission if it has expired
+        // Clear the permission if it has expired
         if (timestamp > d.deadline) {
           delete permissions[spender][d];
         }

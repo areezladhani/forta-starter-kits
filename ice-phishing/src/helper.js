@@ -1,15 +1,9 @@
-const {
-  Finding,
-  FindingSeverity,
-  FindingType,
-  getEthersProvider,
-  ethers,
-} = require('forta-agent');
-const { default: axios } = require('axios');
-const LRU = require('lru-cache');
-const { nonceThreshold, contractTxsThreshold, etherscanApis } = require('../bot-config.json');
-const { ERC_20_721_INTERFACE, ERC_1155_INTERFACE } = require('./utils');
-const AddressType = require('./address-type');
+const { Finding, FindingSeverity, FindingType, getEthersProvider, ethers } = require("forta-agent");
+const { default: axios } = require("axios");
+const LRU = require("lru-cache");
+const { nonceThreshold, contractTxsThreshold, etherscanApis } = require("../bot-config.json");
+const { ERC_20_721_INTERFACE, ERC_1155_INTERFACE } = require("./utils");
+const AddressType = require("./address-type");
 
 // Computes the data needed for an alert
 function getEventInformation(eventsArray) {
@@ -33,8 +27,7 @@ function getEventInformation(eventsArray) {
 }
 
 function createHighNumApprovalsAlertERC20(spender, approvalsArray) {
-  const { firstTxHash, lastTxHash, assets, accounts, days } =
-    getEventInformation(approvalsArray);
+  const { firstTxHash, lastTxHash, assets, accounts, days } = getEventInformation(approvalsArray);
   return Finding.fromObject({
     name: "High number of accounts granted approvals for ERC20 tokens",
     description: `${spender} obtained transfer approval for ${assets.length} ERC20 tokens by ${accounts.length} accounts over period of ${days} days.`,
@@ -50,8 +43,7 @@ function createHighNumApprovalsAlertERC20(spender, approvalsArray) {
 }
 
 function createHighNumApprovalsAlertERC721(spender, approvalsArray) {
-  const { firstTxHash, lastTxHash, assets, accounts, days } =
-    getEventInformation(approvalsArray);
+  const { firstTxHash, lastTxHash, assets, accounts, days } = getEventInformation(approvalsArray);
   return Finding.fromObject({
     name: "High number of accounts granted approvals for ERC721 tokens",
     description: `${spender} obtained transfer approval for ${assets.length} ERC721 tokens by ${accounts.length} accounts over period of ${days} days.`,
@@ -113,8 +105,7 @@ function createPermitAlert(msgSender, spender, owner, asset) {
 }
 
 function createHighNumTransfersAlert(spender, transfersArray) {
-  const { firstTxHash, lastTxHash, assets, accounts, days } =
-    getEventInformation(transfersArray);
+  const { firstTxHash, lastTxHash, assets, accounts, days } = getEventInformation(transfersArray);
   return Finding.fromObject({
     name: "Previously approved assets transferred",
     description: `${spender} transferred ${assets.length} assets from ${accounts.length} accounts over period of ${days} days.`,
@@ -140,48 +131,34 @@ function getEtherscanAddressUrl(address, chainId) {
 }
 
 async function getEoaType(address, blockNumber) {
-  const nonce = await getEthersProvider().getTransactionCount(
-    address,
-    blockNumber,
-  );
-  return nonce > nonceThreshold
-    ? AddressType.EoaWithHighNonce
-    : AddressType.EoaWithLowNonce;
+  const nonce = await getEthersProvider().getTransactionCount(address, blockNumber);
+  return nonce > nonceThreshold ? AddressType.EoaWithHighNonce : AddressType.EoaWithLowNonce;
 }
 
 async function getContractType(address, chainId) {
   let result;
   result = await axios.get(getEtherscanContractUrl(address, chainId));
-  if (result.data.message === 'NOTOK') {
+  if (result.data.message === "NOTOK") {
     console.log(`rate limit reached; skipping check for ${address}`);
     return null;
   }
 
-  const isVerified = result.data.status === '1';
+  const isVerified = result.data.status === "1";
 
   if (isVerified) {
     return AddressType.VerifiedContract;
   }
 
   result = await axios.get(getEtherscanAddressUrl(address, chainId));
-  if (result.data.message === 'NOTOK') {
+  if (result.data.message === "NOTOK") {
     console.log(`rate limit reached; skipping check for ${address}`);
     return null;
   }
-  const hasHighNumberOfTotalTxs =
-    result.data.result.length > contractTxsThreshold;
-  return hasHighNumberOfTotalTxs
-    ? AddressType.HighNumTxsUnverifiedContract
-    : AddressType.UnverifiedContract;
+  const hasHighNumberOfTotalTxs = result.data.result.length > contractTxsThreshold;
+  return hasHighNumberOfTotalTxs ? AddressType.HighNumTxsUnverifiedContract : AddressType.UnverifiedContract;
 }
 
-async function getAddressType(
-  address,
-  cachedAddresses,
-  blockNumber,
-  chainId,
-  isOwner,
-) {
+async function getAddressType(address, cachedAddresses, blockNumber, chainId, isOwner) {
   if (cachedAddresses.has(address)) {
     const type = cachedAddresses.get(address);
 
@@ -190,10 +167,10 @@ async function getAddressType(
     // the type cannot be changed back
     // the address is ignored
     if (
-      isOwner
-      || type === AddressType.EoaWithHighNonce
-      || type === AddressType.VerifiedContract
-      || type.startsWith('Ignored')
+      isOwner ||
+      type === AddressType.EoaWithHighNonce ||
+      type === AddressType.VerifiedContract ||
+      type.startsWith("Ignored")
     ) {
       return type;
     }
@@ -210,7 +187,7 @@ async function getAddressType(
 
   // If the address is not in the cache check if it is a contract
   const code = await getEthersProvider().getCode(address);
-  const isEoa = code === '0x';
+  const isEoa = code === "0x";
 
   // Skip etherscan call and directly return unverified if checking for the owner
   if (isOwner && !isEoa) return AddressType.UnverifiedContract;
@@ -229,11 +206,7 @@ const cachedBalances = new LRU({ max: 100_000 });
 async function getBalance(token, account, provider, blockNumber) {
   const key = `${account}-${token}-${blockNumber}`;
   if (cachedBalances.has(key)) return cachedBalances.get(key);
-  const tokenContract = new ethers.Contract(
-    token,
-    ERC_20_721_INTERFACE,
-    provider,
-  );
+  const tokenContract = new ethers.Contract(token, ERC_20_721_INTERFACE, provider);
   const balance = await tokenContract.balanceOf(account, {
     blockTag: blockNumber,
   });
@@ -244,11 +217,7 @@ async function getBalance(token, account, provider, blockNumber) {
 async function getERC1155Balance(token, id, account, provider, blockNumber) {
   const key = `${account}-${token} -${id}-${blockNumber}`;
   if (cachedBalances.has(key)) return cachedBalances.get(key);
-  const tokenContract = new ethers.Contract(
-    token,
-    ERC_1155_INTERFACE,
-    provider,
-  );
+  const tokenContract = new ethers.Contract(token, ERC_1155_INTERFACE, provider);
   const balance = await tokenContract.balanceOf(account, id, {
     blockTag: blockNumber,
   });
