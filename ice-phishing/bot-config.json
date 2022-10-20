@@ -3,13 +3,13 @@
   "timePeriodDays": 30,
   "nonceThreshold": 100,
   "contractTxsThreshold": 5000,
-  "approveCountThreshold": 2,
-  "approveForAllCountThreshold": 2,
+  "approveCountThreshold": 1,
+  "approveForAllCountThreshold": 1,
   "transferCountThreshold": 2,
   "maxAddressAlertsPerPeriod": 3,
   "etherscanApis": {
     "1": {
-      "key": "IMD2RVIQR7EPYQSTTDPVHR8U2M3U1UEB4E",
+      "key": "YourApiKeyToken",
       "urlContract": "https://api.etherscan.io/api?module=contract&action=getabi",
       "urlAccount": "https://api.etherscan.io/api?module=account&action=txlist"
     },
