@@ -1,5 +1,5 @@
 const { Finding, FindingSeverity, FindingType, ethers, getEthersProvider } = require("forta-agent");
-const { Contract, Provider } = require("ethers-multicall");
+const { MulticallProvider, MulticallContract } = require("forta-agent-tools");
 const LRU = require("lru-cache");
 
 const { getBlocksIn10Minutes, hashCode, getAddressType, getAssetSymbol } = require("./helper");
@@ -13,7 +13,7 @@ const TOKEN_ABI = [
   "function symbol() external view returns (string memory)",
 ];
 
-const ethcallProvider = new Provider(getEthersProvider());
+const ethcallProvider = new MulticallProvider(getEthersProvider());
 
 const cachedAddresses = new LRU({ max: 100_000 });
 const cachedAssetSymbols = new LRU({ max: 100_000 });
@@ -125,13 +125,13 @@ const handleBlock = async (blockEvent) => {
       return ethcallProvider.getEthBalance(e.address);
     }
 
-    const contract = new Contract(e.asset, TOKEN_ABI);
+    const contract = new MulticallContract(e.asset, TOKEN_ABI);
     return contract.balanceOf(e.address);
   });
 
   // Only process addresses with fully drained assets
-  const balances = await ethcallProvider.all(balanceCalls);
-  transfers = transfers.filter((_, i) => balances[i].eq(ZERO));
+  const balances = await ethcallProvider.all(balanceCalls, blockNumber - 1);
+  transfers = transfers.filter((_, i) => balances[1][i].eq(ZERO));
 
   // Filter out events to EOAs
   transfers = await Promise.all(
@@ -152,7 +152,15 @@ const handleBlock = async (blockEvent) => {
       }
 
       const contract = new ethers.Contract(event.asset, TOKEN_ABI, getEthersProvider());
-      return contract.balanceOf(event.address, { blockTag: block10MinsAgo });
+      let output;
+      try {
+        output = await contract.balanceOf(event.address, {
+          blockTag: block10MinsAgo,
+        });
+      } catch {
+        output = ethers.BigNumber.from(0);
+      }
+      return output;
     }),
   ]);
 
