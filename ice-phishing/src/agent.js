@@ -1,6 +1,6 @@
 const { ethers, getEthersProvider } = require("forta-agent");
 const LRU = require("lru-cache");
-
+const { default: axios } = require("axios");
 const {
   createHighNumApprovalsAlertERC20,
   createHighNumApprovalsAlertERC721,
@@ -9,6 +9,7 @@ const {
   createApprovalForAllAlertERC721,
   createApprovalForAllAlertERC1155,
   createPermitAlert,
+  createPermitScamAlert,
   getAddressType,
   getBalance,
   getERC1155Balance,
@@ -41,6 +42,7 @@ const approvalsForAll721 = {};
 const approvalsForAll1155 = {};
 const permissions = {};
 const transfers = {};
+let scamAddresses = {};
 
 // Every address is ~100B
 // 100_000 addresses are 10MB
@@ -81,14 +83,16 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
     const { address: asset } = func;
     const { owner, spender, deadline, value } = func.args;
 
-    const msgSenderType = await getAddressType(txFrom, cachedAddresses, blockNumber, chainId, false);
+    const msgSenderType = await getAddressType(txFrom, scamAddresses, cachedAddresses, blockNumber, chainId, false);
 
-    const spenderType = await getAddressType(spender, cachedAddresses, blockNumber, chainId, false);
+    const spenderType = await getAddressType(spender, scamAddresses, cachedAddresses, blockNumber, chainId, false);
 
     if (
       txFrom !== owner &&
-      spenderType === (AddressType.HighNumTxsUnverifiedContract || AddressType.EoaWithLowNonce) &&
-      msgSenderType === (AddressType.HighNumTxsUnverifiedContract || AddressType.EoaWithLowNonce)
+      spenderType ===
+        (AddressType.HighNumTxsUnverifiedContract || AddressType.EoaWithLowNonce || AddressType.ScamAddress) &&
+      msgSenderType ===
+        (AddressType.HighNumTxsUnverifiedContract || AddressType.EoaWithLowNonce || AddressType.ScamAddress)
     ) {
       if (!permissions[spender]) permissions[spender] = [];
       permissions[spender].push({
@@ -98,7 +102,24 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         deadline,
         value: value ? value : 0,
       });
-      createPermitAlert(txFrom, spender, owner, asset);
+      if (spenderType !== AddressType.ScamAddress && msgSenderType !== AddressType.ScamAddress) {
+        createPermitAlert(txFrom, spender, owner, asset);
+      } else {
+        const scamSnifferDB = await axios.get(
+          "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
+        ).data;
+        const scamDomains = scamSnifferDB.filter(
+          (key) => scamSnifferDB[key].includes(txFrom) || scamSnifferDB[key].includes(spender)
+        );
+        let scamAddresses;
+        if (spenderType === AddressType.ScamAddress) {
+          scamAddresses.push(spender);
+        }
+        if (msgSenderType === AddressType.ScamAddress) {
+          scamAddresses.push(txFrom);
+        }
+        createPermitScamAlert(txFrom, spender, owner, asset, scamAddresses, scamDomains);
+      }
     }
   });
 
@@ -121,7 +142,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       if (isAlreadyApproved) return;
 
       // Skip if the owner is not EOA
-      const ownerType = await getAddressType(owner, cachedAddresses, blockNumber, chainId, true);
+      const ownerType = await getAddressType(owner, scamAddresses, cachedAddresses, blockNumber, chainId, true);
       if (ownerType === AddressType.UnverifiedContract || ownerType === AddressType.VerifiedContract) return;
 
       // Skip if the spender
@@ -129,7 +150,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       // is verified contract
       // is unverified contracts with high number of txs
       // or is ignored address
-      const spenderType = await getAddressType(spender, cachedAddresses, blockNumber, chainId, false);
+      const spenderType = await getAddressType(spender, scamAddresses, cachedAddresses, blockNumber, chainId, false);
       if (
         !spenderType ||
         spenderType === AddressType.EoaWithHighNonce ||
@@ -291,6 +312,11 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
 let lastTimestamp = 0;
 
 const handleBlock = async (blockEvent) => {
+  const scamSnifferResponse = await axios.get(
+    "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/address.json"
+  );
+  scamAddresses = scamSnifferResponse.data;
+
   const { timestamp } = blockEvent.block;
 
   // Clean the data every timePeriodDays

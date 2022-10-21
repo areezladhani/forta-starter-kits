@@ -6,4 +6,5 @@ module.exports = {
   VerifiedContract: "VerifiedContract",
   IgnoredEoa: "IgnoredEoa",
   IgnoredContract: "IgnoredContract",
+  ScamAddress: "ScamAddress",
 };

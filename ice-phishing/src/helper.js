@@ -192,7 +192,14 @@ async function getContractType(address, chainId) {
   return hasHighNumberOfTotalTxs ? AddressType.HighNumTxsUnverifiedContract : AddressType.UnverifiedContract;
 }
 
-async function getAddressType(address, cachedAddresses, blockNumber, chainId, isOwner) {
+async function getAddressType(address, scamAddresses, cachedAddresses, blockNumber, chainId, isOwner) {
+  if (scamAddresses.includes(address)) {
+    if (!cachedAddresses.has(address) || cachedAddresses.get(address) !== AddressType.ScamAddress) {
+      cachedAddresses.set(address, AddressType.ScamAddress);
+    }
+    return AddressType.ScamAddress;
+  }
+
   if (cachedAddresses.has(address)) {
     const type = cachedAddresses.get(address);
 
