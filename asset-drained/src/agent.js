@@ -28,6 +28,7 @@ const initialize = async () => {
 };
 
 const handleTransaction = async (txEvent) => {
+  const { hash } = txEvent;
   txEvent
     .filterLog(ERC20_TRANSFER_EVENT)
     .filter((event) => !event.args.value.eq(ZERO))
@@ -38,10 +39,31 @@ const handleTransaction = async (txEvent) => {
       const hashFrom = hashCode(from, asset);
       const hashTo = hashCode(to, asset);
 
-      if (!transfersObj[hashFrom]) transfersObj[hashFrom] = { asset, address: from, value: ZERO };
-      if (!transfersObj[hashTo]) transfersObj[hashTo] = { asset, address: to, value: ZERO };
+      if (!transfersObj[hashFrom]) {
+        transfersObj[hashFrom] = {
+          asset,
+          address: from,
+          value: ZERO,
+          txs: {},
+        };
+      }
+      if (!transfersObj[hashTo]) {
+        transfersObj[hashTo] = {
+          asset,
+          address: to,
+          value: ZERO,
+          txs: {},
+        };
+      }
 
       transfersObj[hashFrom].value = transfersObj[hashFrom].value.sub(value);
+
+      if (!transfersObj[hashFrom].txs[to]) {
+        transfersObj[hashFrom].txs[to] = [hash];
+      } else {
+        transfersObj[hashFrom].txs[to].push(hash);
+      }
+
       transfersObj[hashTo].value = transfersObj[hashTo].value.add(value);
     });
 
@@ -52,10 +74,32 @@ const handleTransaction = async (txEvent) => {
       const hashFrom = hashCode(from, "native");
       const hashTo = hashCode(to, "native");
 
-      if (!transfersObj[hashFrom]) transfersObj[hashFrom] = { asset: "native", address: from, value: ZERO };
-      if (!transfersObj[hashTo]) transfersObj[hashTo] = { asset: "native", address: to, value: ZERO };
+      if (!transfersObj[hashFrom]) {
+        transfersObj[hashFrom] = {
+          asset: "native",
+          address: from,
+          value: ZERO,
+          txs: {},
+        };
+      }
+
+      if (!transfersObj[hashTo]) {
+        transfersObj[hashTo] = {
+          asset: "native",
+          address: to,
+          value: ZERO,
+          txs: {},
+        };
+      }
 
       transfersObj[hashFrom].value = transfersObj[hashFrom].value.sub(value);
+
+      if (!transfersObj[hashFrom].txs[to]) {
+        transfersObj[hashFrom].txs[to] = [hash];
+      } else {
+        transfersObj[hashFrom].txs[to].push(hash);
+      }
+
       transfersObj[hashTo].value = transfersObj[hashTo].value.add(value);
     }
   });
@@ -100,7 +144,7 @@ const handleBlock = async (blockEvent) => {
 
   const calls = await Promise.all([
     ...transfers.map((event) => getAssetSymbol(event.asset, cachedAssetSymbols)),
-    ...transfers.map((event) => {
+    ...transfers.map(async (event) => {
       const block10MinsAgo = blockNumber - blocksIn10Minutes;
 
       if (event.asset === "native") {
@@ -139,7 +183,10 @@ const handleBlock = async (blockEvent) => {
         metadata: {
           contract: t.address,
           asset: t.asset,
+          txHashes: [...new Set(Object.values(t.txs).flat())],
+          blockNumber: blockNumber - 1,
         },
+        addresses: [...new Set(Object.keys(t.txs))],
       })
     );
   });
