@@ -5,6 +5,7 @@ const {
   createHighNumApprovalsAlertERC20,
   createHighNumApprovalsAlertERC721,
   createHighNumTransfersAlert,
+  createPermitTransferAlert,
   createApprovalForAllAlertERC721,
   createApprovalForAllAlertERC1155,
   createPermitAlert,
@@ -78,7 +79,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
 
   permitFunctions.map(async (func) => {
     const { address: asset } = func;
-    const { owner, spender, deadline } = func.args;
+    const { owner, spender, deadline, value } = func.args;
 
     const msgSenderType = await getAddressType(txFrom, cachedAddresses, blockNumber, chainId, false);
 
@@ -95,6 +96,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         owner,
         hash,
         deadline,
+        value: value ? value : 0,
       });
       createPermitAlert(txFrom, spender, owner, asset);
     }
@@ -225,7 +227,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
   await Promise.all(
     transferEvents.map(async (event) => {
       const asset = event.address;
-      const { from, tokenId, tokenIds } = event.args;
+      const { from, to, value, tokenId, tokenIds } = event.args;
 
       // Filter out direct transfers and mints
       if (from === txFrom || from === ADDRESS_ZERO) return;
@@ -234,6 +236,14 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       const spenderApprovals = approvals[txFrom];
       const spenderPermissions = permissions[txFrom];
       if (!spenderApprovals && !spenderPermissions) return;
+
+      spenderPermissions.forEach((permission) => {
+        if (permission.asset === asset && permission.owner === from) {
+          if (!permission.value || permission.value === value) {
+            createPermitTransferAlert(txFrom, from, to, asset, value);
+          }
+        }
+      });
 
       // Check if we have caught the approval
       // For ERC20: Check if there is an approval from the owner that isn't from the current tx

@@ -77,6 +77,17 @@ This bot detects if an account (EOA with low nonce or unverified account with lo
     - `lastTxHash` - hash of the last transfer tx
   - Addresses contain an array of the impacted assets
 
+- ICE-PHISHING-PERMITTED-ERC20-TRANSFER
+
+  - Fired when an account transfers tokens for which it was previously granted permission.
+  - Severity is always set to "critical"
+  - Type is always set to "exploit"
+  - Metadata:
+    - `spender` - the account that transferred the tokens
+    - `owner` - the owner of the assets
+    - `receiver` - the account that received the tokens
+  - Addresses contain the transferred asset address
+
 ## Test Data
 
 The bot behaviour can be verified with the following transactions:

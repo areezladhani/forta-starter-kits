@@ -120,6 +120,22 @@ function createHighNumTransfersAlert(spender, transfersArray) {
   });
 }
 
+function createPermitTransferAlert(spender, owner, receiver, asset, value) {
+  return Finding.fromObject({
+    name: "Previously permitted assets transferred",
+    description: `${spender} transferred ${value} tokens from ${from} to ${to}`,
+    alertId: "ICE-PHISHING-PERMITTED-ERC20-TRANSFER",
+    severity: FindingSeverity.Critical,
+    type: FindingType.Exploit,
+    metadata: {
+      spender,
+      owner,
+      receiver,
+    },
+    addresses: asset,
+  });
+}
+
 function getEtherscanContractUrl(address, chainId) {
   const { urlContract, key } = etherscanApis[chainId];
   return `${urlContract}&address=${address}&apikey=${key}`;
@@ -229,6 +245,7 @@ module.exports = {
   createHighNumApprovalsAlertERC20,
   createHighNumApprovalsAlertERC721,
   createHighNumTransfersAlert,
+  createPermitTransferAlert,
   createApprovalForAllAlertERC721,
   createApprovalForAllAlertERC1155,
   createPermitAlert,
