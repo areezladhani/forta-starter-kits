@@ -1,11 +1,11 @@
 /* eslint-disable no-plusplus */
 /* eslint-disable no-bitwise */
-const { ethers } = require('forta-agent');
+const { ethers } = require("forta-agent");
 
 const eulerEventSigs = [
-  'event Borrow(address indexed underlying, address indexed account, uint amount)',
-  'event Repay(address indexed underlying, address indexed account, uint amount)',
-  'event RequestBorrow(address indexed account, uint amount)',
+  "event Borrow(address indexed underlying, address indexed account, uint amount)",
+  "event Repay(address indexed underlying, address indexed account, uint amount)",
+  "event RequestBorrow(address indexed account, uint amount)",
 ];
 
 const zero = ethers.constants.Zero;
@@ -17,7 +17,7 @@ function hashCode(protocol, asset, account) {
   if (str.length === 0) return hash;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash &= hash; // Convert to 32bit integer
   }
   return hash;
@@ -42,7 +42,7 @@ module.exports = {
       const { underlying, amount, account } = event.args;
 
       // We process the RequestBorrow events later
-      if (name === 'RequestBorrow') return;
+      if (name === "RequestBorrow") return;
 
       const id = hashCode(address, underlying, account);
 
@@ -56,7 +56,7 @@ module.exports = {
         };
       }
 
-      if (name === 'Borrow') {
+      if (name === "Borrow") {
         markets[id].withdrawn = markets[id].withdrawn.add(amount);
       } else {
         markets[id].deposited = markets[id].deposited.add(amount);
@@ -64,19 +64,13 @@ module.exports = {
     });
 
     Object.values(markets).forEach((market) => {
-      const {
-        address,
-        underlying,
-        account,
-        deposited,
-        withdrawn,
-      } = market;
+      const { address, underlying, account, deposited, withdrawn } = market;
 
       // The Borrow event always return the amount with 18 decimals which leads
       // to wrong usd profits so we need to get the corresponding RequestBorrow
       // borrow event and calculate the decimal difference
       const amount = events
-        .filter((event) => event.name === 'RequestBorrow')
+        .filter((event) => event.name === "RequestBorrow")
         .filter((event) => event.args.account === account && event.address === address)
         .map((event) => event.args.amount)
         .filter((a) => withdrawn.toString().startsWith(a.toString()))[0];

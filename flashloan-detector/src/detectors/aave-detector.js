@@ -1,4 +1,5 @@
-const aaveFlashloanSig = 'event FlashLoan(address indexed target, address indexed initiator, address indexed asset, uint256 amount, uint256 premium, uint16 referralCode)';
+const aaveFlashloanSig =
+  "event FlashLoan(address indexed target, address indexed initiator, address indexed asset, uint256 amount, uint256 premium, uint16 referralCode)";
 
 module.exports = {
   getAaveFlashloan: (txEvent) => {

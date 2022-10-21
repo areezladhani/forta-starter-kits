@@ -1,4 +1,4 @@
-const makerFlashloanSig = 'event FlashLoan(address indexed receiver, address token, uint256 amount, uint256 fee)';
+const makerFlashloanSig = "event FlashLoan(address indexed receiver, address token, uint256 amount, uint256 fee)";
 
 module.exports = {
   getMakerFlashloan: (txEvent) => {
