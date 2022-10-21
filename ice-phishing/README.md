@@ -18,7 +18,7 @@ This bot detects if an account (EOA with low nonce or unverified account with lo
 
 - ICE-PHISHING-HIGH-NUM-ERC20-APPROVALS
 
-  - Fired when an account gains high number of ERC20 approvals
+  - Fired when an account gains high number of ERC-20 approvals
   - Severity is always set to "low"
   - Type is always set to "suspicious"
   - Metadata:
@@ -28,7 +28,7 @@ This bot detects if an account (EOA with low nonce or unverified account with lo
 
 - ICE-PHISHING-HIGH-NUM-ERC721-APPROVALS
 
-  - Fired when an account gains high number of ERC721 approvals
+  - Fired when an account gains high number of ERC-721 approvals
   - Severity is always set to "low"
   - Type is always set to "suspicious"
   - Metadata:
@@ -38,7 +38,7 @@ This bot detects if an account (EOA with low nonce or unverified account with lo
 
 - ICE-PHISHING-ERC721-APPROVAL-FOR-ALL
 
-  - Fired when an account gains approval for all ERC721s
+  - Fired when an account gains approval for all ERC-721s
   - Severity is always set to "low"
   - Type is always set to "suspicious"
   - Metadata:
@@ -48,7 +48,7 @@ This bot detects if an account (EOA with low nonce or unverified account with lo
 
 - ICE-PHISHING-ERC1155-APPROVAL-FOR-ALL
 
-  - Fired when an account gains approval for all ERC1155s
+  - Fired when an account gains approval for all ERC-1155s
   - Severity is always set to "low"
   - Type is always set to "suspicious"
   - Metadata:
@@ -58,7 +58,7 @@ This bot detects if an account (EOA with low nonce or unverified account with lo
 
 - ICE-PHISHING-ERC20-PERMIT
 
-  - Fired when an account gives permission to another account for a victim's ERC20s
+  - Fired when an account gives permission to another account for a victim's ERC-20s
   - Severity is always set to "low"
   - Type is always set to "suspicious"
   - Metadata:
@@ -66,6 +66,19 @@ This bot detects if an account (EOA with low nonce or unverified account with lo
     - `spender` - the account that received the approval
     - `owner` - the owner of the assets
   - Addresses contain the permitted asset address
+
+- ICE-PHISHING-ERC20-SCAM-PERMIT
+
+  - Fired when a known scam address is involved in an ERC-20 permission.
+    - Severity is always set to "high"
+    - Type is always set to "suspicious"
+    - Metadata:
+      - `scamAddresses` - The list of known scam addresses that were involved in this permission
+      - `scamDomains` - The list of domains related to the scam addresses
+      - `msgSender` - the account that called the asset's `permit` function
+      - `spender` - the account that received the approval
+      - `owner` - the owner of the assets
+    - Addresses contain the permitted asset address
 
 - ICE-PHISHING-HIGH-NUM-APPROVED-TRANSFERS
 

@@ -29,8 +29,8 @@ function getEventInformation(eventsArray) {
 function createHighNumApprovalsAlertERC20(spender, approvalsArray) {
   const { firstTxHash, lastTxHash, assets, accounts, days } = getEventInformation(approvalsArray);
   return Finding.fromObject({
-    name: "High number of accounts granted approvals for ERC20 tokens",
-    description: `${spender} obtained transfer approval for ${assets.length} ERC20 tokens by ${accounts.length} accounts over period of ${days} days.`,
+    name: "High number of accounts granted approvals for ERC-20 tokens",
+    description: `${spender} obtained transfer approval for ${assets.length} ERC-20 tokens by ${accounts.length} accounts over period of ${days} days.`,
     alertId: "ICE-PHISHING-HIGH-NUM-ERC20-APPROVALS",
     severity: FindingSeverity.Low,
     type: FindingType.Suspicious,
@@ -45,8 +45,8 @@ function createHighNumApprovalsAlertERC20(spender, approvalsArray) {
 function createHighNumApprovalsAlertERC721(spender, approvalsArray) {
   const { firstTxHash, lastTxHash, assets, accounts, days } = getEventInformation(approvalsArray);
   return Finding.fromObject({
-    name: "High number of accounts granted approvals for ERC721 tokens",
-    description: `${spender} obtained transfer approval for ${assets.length} ERC721 tokens by ${accounts.length} accounts over period of ${days} days.`,
+    name: "High number of accounts granted approvals for ERC-721 tokens",
+    description: `${spender} obtained transfer approval for ${assets.length} ERC-721 tokens by ${accounts.length} accounts over period of ${days} days.`,
     alertId: "ICE-PHISHING-HIGH-NUM-ERC721-APPROVALS",
     severity: FindingSeverity.Low,
     type: FindingType.Suspicious,
@@ -60,8 +60,8 @@ function createHighNumApprovalsAlertERC721(spender, approvalsArray) {
 
 function createApprovalForAllAlertERC721(spender, owner, asset) {
   return Finding.fromObject({
-    name: "Account got approval for all ERC721 tokens",
-    description: `${spender} obtained transfer approval for all ERC721 tokens from ${owner}`,
+    name: "Account got approval for all ERC-721 tokens",
+    description: `${spender} obtained transfer approval for all ERC-721 tokens from ${owner}`,
     alertId: "ICE-PHISHING-ERC721-APPROVAL-FOR-ALL",
     severity: FindingSeverity.Low,
     type: FindingType.Suspicious,
@@ -75,9 +75,9 @@ function createApprovalForAllAlertERC721(spender, owner, asset) {
 
 function createApprovalForAllAlertERC1155(spender, owner, asset) {
   return Finding.fromObject({
-    name: "Account got approval for all ERC1155 tokens",
-    description: `${spender} obtained transfer approval for all ERC1155 tokens from ${owner}`,
-    alertId: "ICE-PHISHING-ERC1155-APPROVAL-FOR-ALL",
+    name: "Account got approval for all ERC-1155 tokens",
+    description: `${spender} obtained transfer approval for all ERC-1155 tokens from ${owner}`,
+    alertId: "ICE-PHISHING-ERC-1155-APPROVAL-FOR-ALL",
     severity: FindingSeverity.Low,
     type: FindingType.Suspicious,
     metadata: {
@@ -90,12 +90,30 @@ function createApprovalForAllAlertERC1155(spender, owner, asset) {
 
 function createPermitAlert(msgSender, spender, owner, asset) {
   return Finding.fromObject({
-    name: "Account got permission for ERC20 tokens",
-    description: `${msgSender} gave permission to ${spender} for ${owner}'s ERC20 tokens`,
+    name: "Account got permission for ERC-20 tokens",
+    description: `${msgSender} gave permission to ${spender} for ${owner}'s ERC-20 tokens`,
     alertId: "ICE-PHISHING-ERC20-PERMIT",
     severity: FindingSeverity.Low,
     type: FindingType.Suspicious,
     metadata: {
+      msgSender,
+      spender,
+      owner,
+    },
+    addresses: [asset],
+  });
+}
+
+function createPermitScamAlert(msgSender, spender, owner, asset, scamAddresses, scamDomains) {
+  return Finding.fromObject({
+    name: "Known scam address was involved in an ERC-20 permission",
+    description: `${msgSender} gave permission to ${spender} for ${owner}'s ERC-20 tokens`,
+    alertId: "ICE-PHISHING-ERC20-SCAM-PERMIT",
+    severity: FindingSeverity.High,
+    type: FindingType.Suspicious,
+    metadata: {
+      scamAddresses,
+      scamDomains,
       msgSender,
       spender,
       owner,
@@ -249,6 +267,7 @@ module.exports = {
   createApprovalForAllAlertERC721,
   createApprovalForAllAlertERC1155,
   createPermitAlert,
+  createPermitScamAlert,
   getAddressType,
   getBalance,
   getERC1155Balance,
