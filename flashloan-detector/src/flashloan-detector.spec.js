@@ -27,6 +27,10 @@ const mockAaveEvent = {
   args: { asset, amount, target: account },
 };
 
+const mockAaveV3Event = {
+  args: { asset, amount, target: account },
+};
+
 const mockDydxWithdrawEvent = {
   address: market,
   args: {
@@ -134,8 +138,9 @@ describe("FlashloanDetector library", () => {
       expect(flashloans).toStrictEqual([]);
     });
 
-    it("should return the all protocols if there is a flashloan from all", async () => {
+    it("should return all the protocols if there is a flashloan from all", async () => {
       mockTxEvent.filterLog.mockReturnValueOnce([mockAaveEvent]);
+      mockTxEvent.filterLog.mockReturnValueOnce([mockAaveV3Event]);
       mockTxEvent.filterLog.mockReturnValueOnce([mockDydxDepositEvent, mockDydxWithdrawEvent]);
       mockTxEvent.filterLog.mockReturnValueOnce([
         mockEulerRequestBorrowEvent,
@@ -151,8 +156,8 @@ describe("FlashloanDetector library", () => {
       const expectedFlashloanData = { account, amount, asset };
       const expectedArray = [];
 
-      // 7 flashloans: aave, dydx, euler, iron bank, maker, uniswap V2, uniswap V3
-      for (let i = 0; i < 7; i++) {
+      // 7 flashloans: aave, aaveV3, dydx, euler, iron bank, maker, uniswap V2, uniswap V3
+      for (let i = 0; i < 8; i++) {
         expectedArray.push(expectedFlashloanData);
       }
 
