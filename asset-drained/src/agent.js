@@ -1,26 +1,16 @@
-const {
-  Finding,
-  FindingSeverity,
-  FindingType,
-  ethers,
-  getEthersProvider,
-} = require('forta-agent');
-const { Contract, Provider } = require('ethers-multicall');
-const LRU = require('lru-cache');
+const { Finding, FindingSeverity, FindingType, ethers, getEthersProvider } = require("forta-agent");
+const { Contract, Provider } = require("ethers-multicall");
+const LRU = require("lru-cache");
 
-const {
-  getBlocksIn10Minutes,
-  hashCode,
-  getAddressType,
-  getAssetSymbol,
-} = require('./helper');
-const AddressType = require('./address-type');
+const { getBlocksIn10Minutes, hashCode, getAddressType, getAssetSymbol } = require("./helper");
+const AddressType = require("./address-type");
 
 const ZERO = ethers.constants.Zero;
-const ERC20_TRANSFER_EVENT = 'event Transfer(address indexed from, address indexed to, uint256 value)';
-const TOKEN_ABI = [ // TODO: only use once
-  'function balanceOf(address) public view returns (uint256)',
-  'function symbol() external view returns (string memory)',
+const ERC20_TRANSFER_EVENT = "event Transfer(address indexed from, address indexed to, uint256 value)";
+const TOKEN_ABI = [
+  // TODO: only use once
+  "function balanceOf(address) public view returns (uint256)",
+  "function symbol() external view returns (string memory)",
 ];
 
 const ethcallProvider = new Provider(getEthersProvider());
@@ -38,7 +28,8 @@ const initialize = async () => {
 };
 
 const handleTransaction = async (txEvent) => {
-  txEvent.filterLog(ERC20_TRANSFER_EVENT)
+  txEvent
+    .filterLog(ERC20_TRANSFER_EVENT)
     .filter((event) => !event.args.value.eq(ZERO))
     .filter((event) => event.address !== event.args.from.toLowerCase())
     .forEach((event) => {
@@ -55,19 +46,14 @@ const handleTransaction = async (txEvent) => {
     });
 
   txEvent.traces.forEach((trace) => {
-    const {
-      from,
-      to,
-      value,
-      callType,
-    } = trace.action;
+    const { from, to, value, callType } = trace.action;
 
-    if (value && value !== '0x0' && callType === 'call') {
-      const hashFrom = hashCode(from, 'native');
-      const hashTo = hashCode(to, 'native');
+    if (value && value !== "0x0" && callType === "call") {
+      const hashFrom = hashCode(from, "native");
+      const hashTo = hashCode(to, "native");
 
-      if (!transfersObj[hashFrom]) transfersObj[hashFrom] = { asset: 'native', address: from, value: ZERO };
-      if (!transfersObj[hashTo]) transfersObj[hashTo] = { asset: 'native', address: to, value: ZERO };
+      if (!transfersObj[hashFrom]) transfersObj[hashFrom] = { asset: "native", address: from, value: ZERO };
+      if (!transfersObj[hashTo]) transfersObj[hashTo] = { asset: "native", address: to, value: ZERO };
 
       transfersObj[hashFrom].value = transfersObj[hashFrom].value.sub(value);
       transfersObj[hashTo].value = transfersObj[hashTo].value.add(value);
@@ -91,7 +77,7 @@ const handleBlock = async (blockEvent) => {
   console.log(`processing block ${blockNumber}`);
 
   const balanceCalls = transfers.map((e) => {
-    if (e.asset === 'native') {
+    if (e.asset === "native") {
       return ethcallProvider.getEthBalance(e.address);
     }
 
@@ -104,10 +90,12 @@ const handleBlock = async (blockEvent) => {
   transfers = transfers.filter((_, i) => balances[i].eq(ZERO));
 
   // Filter out events to EOAs
-  transfers = await Promise.all(transfers.map(async (event) => {
-    const type = await getAddressType(event.address, cachedAddresses);
-    return (type === AddressType.Contract) ? event : null;
-  }));
+  transfers = await Promise.all(
+    transfers.map(async (event) => {
+      const type = await getAddressType(event.address, cachedAddresses);
+      return type === AddressType.Contract ? event : null;
+    })
+  );
   transfers = transfers.filter((e) => !!e);
 
   const calls = await Promise.all([
@@ -115,7 +103,7 @@ const handleBlock = async (blockEvent) => {
     ...transfers.map((event) => {
       const block10MinsAgo = blockNumber - blocksIn10Minutes;
 
-      if (event.asset === 'native') {
+      if (event.asset === "native") {
         return getEthersProvider().getBalance(event.address, block10MinsAgo);
       }
 
@@ -127,7 +115,9 @@ const handleBlock = async (blockEvent) => {
   const symbols = calls.slice(0, transfers.length);
   const balances10MinsAgo = calls.slice(transfers.length);
 
-  symbols.forEach((s, i) => { transfers[i].symbol = s; });
+  symbols.forEach((s, i) => {
+    transfers[i].symbol = s;
+  });
 
   transfers = transfers.filter((t, i) => {
     // Flag the address as ignored if its balance was 0 10 minutes ago
@@ -139,17 +129,19 @@ const handleBlock = async (blockEvent) => {
   });
 
   transfers.forEach((t) => {
-    findings.push(Finding.fromObject({
-      name: 'Asset drained',
-      description: `All ${t.symbol} tokens were drained from ${t.address}`,
-      alertId: 'ASSET-DRAINED',
-      severity: FindingSeverity.High,
-      type: FindingType.Exploit,
-      metadata: {
-        contract: t.address,
-        asset: t.asset,
-      },
-    }));
+    findings.push(
+      Finding.fromObject({
+        name: "Asset drained",
+        description: `All ${t.symbol} tokens were drained from ${t.address}`,
+        alertId: "ASSET-DRAINED",
+        severity: FindingSeverity.High,
+        type: FindingType.Exploit,
+        metadata: {
+          contract: t.address,
+          asset: t.asset,
+        },
+      })
+    );
   });
 
   const et = new Date();
