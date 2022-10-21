@@ -1,4 +1,5 @@
 const { getAaveFlashloan } = require("./detectors/aave-detector");
+const { getAaveV3Flashloan } = require("./detectors/aave-v3-detector");
 const { getDydxFlashloan } = require("./detectors/dydx-detector");
 const { getEulerFlashloan } = require("./detectors/euler-detector");
 const { getIronBankFlashloan } = require("./detectors/iron-bank-detector");
@@ -11,6 +12,7 @@ module.exports = {
   async getFlashloans(txEvent) {
     const flashloanProtocols = [];
     const aaveFlashloans = getAaveFlashloan(txEvent);
+    const aaveV3Flashloans = getAaveV3Flashloan(txEvent);
     const dydxFlashloans = await getDydxFlashloan(txEvent);
     const eulerFlashloans = getEulerFlashloan(txEvent);
     const ironBankFlashloans = await getIronBankFlashloan(txEvent);
@@ -20,6 +22,7 @@ module.exports = {
 
     flashloanProtocols.push(
       ...aaveFlashloans,
+      ...aaveV3Flashloans,
       ...dydxFlashloans,
       ...eulerFlashloans,
       ...ironBankFlashloans,
