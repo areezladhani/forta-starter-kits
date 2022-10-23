@@ -170,15 +170,21 @@ module.exports = {
   },
   async calculateNativeUsdProfit(amount, token) {
     const response = await axios.get(getNativeTokenPrice(token));
+    if (!response.data[token]) return 0;
+
     const usdPrice = response.data[token].usd;
 
-    // Does every chain has 18 decimals?
     const tokenAmount = ethers.utils.formatEther(amount);
     return tokenAmount * usdPrice;
   },
   async calculateBorrowedAmount(asset, amount, chain) {
     const response = await axios.get(getTokenPrice(chain, asset));
     const usdPrice = response.data[asset].usd;
+
+    //Setting a high price to avoid false positives as it's a borrowed amount
+    if (!response.data[asset]) {
+      usdPrice = 1_000_000;
+    }
 
     if (!tokenDecimals[asset]) {
       const contract = new Contract(asset, ABI);
