@@ -1,7 +1,6 @@
-/* eslint-disable no-await-in-loop */
-/* eslint-disable no-plusplus */
 const { FindingType, FindingSeverity, Finding, ethers, getEthersProvider } = require("forta-agent");
 const axios = require("axios");
+const { createAddress } = require("forta-agent-tools");
 
 const {
   handleTransaction,
@@ -18,11 +17,11 @@ const timePeriodDays = 30;
 const nonceThreshold = 100;
 const maxAddressAlertsPerPeriod = 3;
 
-const spender = ethers.Wallet.createRandom().address;
-const owner1 = ethers.Wallet.createRandom().address;
-const owner2 = ethers.Wallet.createRandom().address;
-const owner3 = ethers.Wallet.createRandom().address;
-const asset = ethers.Wallet.createRandom().address;
+const spender = createAddress("0x01");
+const owner1 = createAddress("0x02");
+const owner2 = createAddress("0x03");
+const owner3 = createAddress("0x04");
+const asset = createAddress("0x05");
 
 // Mock the config file
 jest.mock(
