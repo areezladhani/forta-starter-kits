@@ -23,7 +23,7 @@ jest.mock("forta-agent", () => {
   };
 });
 
-const mockAaveEvent = {
+const mockAaveV2Event = {
   args: { asset, amount, target: account },
 };
 
@@ -139,7 +139,7 @@ describe("FlashloanDetector library", () => {
     });
 
     it("should return all the protocols if there is a flashloan from all", async () => {
-      mockTxEvent.filterLog.mockReturnValueOnce([mockAaveEvent]);
+      mockTxEvent.filterLog.mockReturnValueOnce([mockAaveV2Event]);
       mockTxEvent.filterLog.mockReturnValueOnce([mockAaveV3Event]);
       mockTxEvent.filterLog.mockReturnValueOnce([mockDydxDepositEvent, mockDydxWithdrawEvent]);
       mockTxEvent.filterLog.mockReturnValueOnce([
@@ -156,7 +156,7 @@ describe("FlashloanDetector library", () => {
       const expectedFlashloanData = { account, amount, asset };
       const expectedArray = [];
 
-      // 7 flashloans: aave, aaveV3, dydx, euler, iron bank, maker, uniswap V2, uniswap V3
+      // 7 flashloans: aaveV2, aaveV3, dydx, euler, iron bank, maker, uniswap V2, uniswap V3
       for (let i = 0; i < 8; i++) {
         expectedArray.push(expectedFlashloanData);
       }

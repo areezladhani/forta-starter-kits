@@ -1,4 +1,4 @@
-const { getAaveFlashloan } = require("./detectors/aave-detector");
+const { getAaveV2Flashloan } = require("./detectors/aave-v2-detector");
 const { getAaveV3Flashloan } = require("./detectors/aave-v3-detector");
 const { getDydxFlashloan } = require("./detectors/dydx-detector");
 const { getEulerFlashloan } = require("./detectors/euler-detector");
@@ -11,7 +11,7 @@ module.exports = {
   // Returns an array of protocols from which a flashloan was taken
   async getFlashloans(txEvent) {
     const flashloanProtocols = [];
-    const aaveFlashloans = getAaveFlashloan(txEvent);
+    const aaveV2Flashloans = getAaveV2Flashloan(txEvent);
     const aaveV3Flashloans = getAaveV3Flashloan(txEvent);
     const dydxFlashloans = await getDydxFlashloan(txEvent);
     const eulerFlashloans = getEulerFlashloan(txEvent);
@@ -21,7 +21,7 @@ module.exports = {
     const uniswapV3Flashloans = await getUniswapV3Flashloan(txEvent);
 
     flashloanProtocols.push(
-      ...aaveFlashloans,
+      ...aaveV2Flashloans,
       ...aaveV3Flashloans,
       ...dydxFlashloans,
       ...eulerFlashloans,
