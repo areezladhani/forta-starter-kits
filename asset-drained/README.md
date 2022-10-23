@@ -29,5 +29,9 @@ This bot detects if an asset is fully drained from a contract. It monitors ERC20
 
 ## Test Data
 
-The bot behaviour can be verified by running `npm run block 13499798,13499799` (CREAM exploit).
+The bot behaviour can be verified by running:
+
+- `npm run block 13499798,13499799` (CREAM exploit).
+- `npm run block 15572488,15572489` (WinterMute exploit).
+
 Every block we process the transactions from the previous one so when testing you should provide the exploit block and the next one.
