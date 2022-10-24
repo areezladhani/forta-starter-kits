@@ -83,9 +83,25 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
     const { address: asset } = func;
     const { owner, spender, deadline, value } = func.args;
 
-    const msgSenderType = await getAddressType(txFrom, scamAddresses, cachedAddresses, blockNumber, chainId, false);
+    const msgSenderType = await getAddressType(
+      txFrom,
+      scamAddresses,
+      cachedAddresses,
+      provider,
+      blockNumber,
+      chainId,
+      false
+    );
 
-    const spenderType = await getAddressType(spender, scamAddresses, cachedAddresses, blockNumber, chainId, false);
+    const spenderType = await getAddressType(
+      spender,
+      scamAddresses,
+      cachedAddresses,
+      provider,
+      blockNumber,
+      chainId,
+      false
+    );
 
     if (
       txFrom !== owner &&
@@ -142,7 +158,15 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       if (isAlreadyApproved) return;
 
       // Skip if the owner is not EOA
-      const ownerType = await getAddressType(owner, scamAddresses, cachedAddresses, blockNumber, chainId, true);
+      const ownerType = await getAddressType(
+        owner,
+        scamAddresses,
+        cachedAddresses,
+        provider,
+        blockNumber,
+        chainId,
+        true
+      );
       if (ownerType === AddressType.UnverifiedContract || ownerType === AddressType.VerifiedContract) return;
 
       // Skip if the spender
@@ -150,7 +174,15 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       // is verified contract
       // is unverified contracts with high number of txs
       // or is ignored address
-      const spenderType = await getAddressType(spender, scamAddresses, cachedAddresses, blockNumber, chainId, false);
+      const spenderType = await getAddressType(
+        spender,
+        scamAddresses,
+        cachedAddresses,
+        provider,
+        blockNumber,
+        chainId,
+        false
+      );
       if (
         !spenderType ||
         spenderType === AddressType.EoaWithHighNonce ||
@@ -164,7 +196,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       if (!approvals[spender]) approvals[spender] = [];
 
       if (isApprovalForAll) {
-        const assetCode = await getEthersProvider().getCode(asset);
+        const assetCode = await provider.getCode(asset);
         if (assetCode.includes(safeBatchTransferFrom1155Sig)) {
           if (!approvalsForAll1155[spender]) approvalsForAll1155[spender] = [];
           approvalsForAll1155[spender].push({

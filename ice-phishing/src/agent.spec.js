@@ -1,7 +1,6 @@
 const { FindingType, FindingSeverity, Finding, ethers, getEthersProvider } = require("forta-agent");
 const axios = require("axios");
 const { createAddress } = require("forta-agent-tools");
-const { MockEthersProvider } = require("forta-agent-tools/lib/test");
 const {
   provideHandleTransaction,
   handleBlock,
@@ -51,7 +50,6 @@ jest.mock("forta-agent", () => {
       ...original.ethers,
       Contract: jest.fn().mockImplementation(() => ({
         balanceOf: mockBalanceOf,
-        decimals: () => 18,
       })),
     },
   };
@@ -148,7 +146,10 @@ const mockTransferEvents = [
 ];
 
 describe("ice-phishing bot", () => {
-  const mockProvider = new MockEthersProvider();
+  const mockProvider = {
+    getCode: jest.fn(),
+    getTransactionCount: jest.fn(),
+  };
   let handleTransaction;
 
   describe("provideHandleTransaction", () => {
@@ -210,7 +211,8 @@ describe("ice-phishing bot", () => {
           timestamp: 1000 * i,
           from: spender,
         };
-
+        mockProvider.getCode.mockReturnValue("0x");
+        mockProvider.getTransactionCount.mockReturnValue(1);
         await handleTransaction(tempTxEvent);
       }
 
@@ -223,7 +225,9 @@ describe("ice-phishing bot", () => {
         .mockReturnValueOnce([]); // ERC1155 transfers
 
       mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
-
+      mockProvider.getCode.mockReturnValue("0x");
+      mockProvider.getTransactionCount.mockReturnValue(1);
+      expect(mockProvider.getCode).toHaveBeenCalledTimes(5);
       const findings = await handleTransaction(mockTxEvent);
 
       expect(findings).toStrictEqual([
@@ -258,6 +262,7 @@ describe("ice-phishing bot", () => {
           timestamp: 1000 * i,
           from: spender,
         };
+        mockProvider.getCode.mockReturnValueOnce("0x");
 
         await handleTransaction(tempTxEvent);
       }
@@ -271,7 +276,7 @@ describe("ice-phishing bot", () => {
         .mockReturnValueOnce([]); // ERC1155 transfers
 
       mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
-
+      mockProvider.getCode.mockReturnValueOnce("0x");
       const findings = await handleTransaction(mockTxEvent);
 
       expect(findings).toStrictEqual([

@@ -164,8 +164,8 @@ function getEtherscanAddressUrl(address, chainId) {
   return `${urlAccount}&address=${address}&startblock=0&endblock=99999999&page=1&offset=10&sort=asc&apikey=${key}`;
 }
 
-async function getEoaType(address, blockNumber) {
-  const nonce = await getEthersProvider().getTransactionCount(address, blockNumber);
+async function getEoaType(address, provider, blockNumber) {
+  const nonce = await provider.getTransactionCount(address, blockNumber);
   return nonce > nonceThreshold ? AddressType.EoaWithHighNonce : AddressType.EoaWithLowNonce;
 }
 
@@ -192,7 +192,7 @@ async function getContractType(address, chainId) {
   return hasHighNumberOfTotalTxs ? AddressType.HighNumTxsUnverifiedContract : AddressType.UnverifiedContract;
 }
 
-async function getAddressType(address, scamAddresses, cachedAddresses, blockNumber, chainId, isOwner) {
+async function getAddressType(address, scamAddresses, cachedAddresses, provider, blockNumber, chainId, isOwner) {
   if (scamAddresses.includes(address)) {
     if (!cachedAddresses.has(address) || cachedAddresses.get(address) !== AddressType.ScamAddress) {
       cachedAddresses.set(address, AddressType.ScamAddress);
@@ -218,7 +218,7 @@ async function getAddressType(address, scamAddresses, cachedAddresses, blockNumb
 
     const getTypeFn =
       type === AddressType.EoaWithLowNonce
-        ? async () => getEoaType(address, blockNumber)
+        ? async () => getEoaType(address, provider, blockNumber)
         : async () => getContractType(address, chainId);
     const newType = await getTypeFn(address, blockNumber);
 
@@ -227,14 +227,14 @@ async function getAddressType(address, scamAddresses, cachedAddresses, blockNumb
   }
 
   // If the address is not in the cache check if it is a contract
-  const code = await getEthersProvider().getCode(address);
+  const code = await provider.getCode(address);
   const isEoa = code === "0x";
 
   // Skip etherscan call and directly return unverified if checking for the owner
   if (isOwner && !isEoa) return AddressType.UnverifiedContract;
 
   const getTypeFn = isEoa
-    ? async () => getEoaType(address, blockNumber)
+    ? async () => getEoaType(address, provider, blockNumber)
     : async () => getContractType(address, chainId);
   const type = await getTypeFn(address, blockNumber);
 
