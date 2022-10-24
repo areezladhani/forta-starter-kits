@@ -29,8 +29,6 @@ const owner3 = createAddress("0x04");
 const asset = createAddress("0x05");
 const asset2 = createAddress("0x06");
 
-//const txFrom = createAddress("0x06");
-
 // Mock the config file
 jest.mock(
   "../bot-config.json",

@@ -4,6 +4,8 @@
 
 This bot detects if an account (EOA with low nonce or unverified account with low number of transactions) gains a high number of approvals or an ERC20 permission and if it transfers the approved funds. It also checks if an account from the [ScamSniffer DB](https://github.com/scamsniffer/scam-database) is involved in an `Approval`/`Transfer`/`permit`.
 
+> The `permit` function signatures detected by the bot are the EIP-2612's and MakerDAO DAI's.
+
 ## Supported Chains
 
 - Ethereum

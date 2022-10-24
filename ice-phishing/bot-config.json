@@ -3,7 +3,7 @@
   "timePeriodDays": 30,
   "nonceThreshold": 100,
   "contractTxsThreshold": 5000,
-  "approveCountThreshold": 2,
+  "approveCountThreshold": 3,
   "approveForAllCountThreshold": 1,
   "transferCountThreshold": 2,
   "maxAddressAlertsPerPeriod": 3,

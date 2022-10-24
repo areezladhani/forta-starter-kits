@@ -108,10 +108,10 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
 
       if (
         txFrom !== owner &&
-        (spenderType === AddressType.HighNumTxsUnverifiedContract ||
+        (spenderType === AddressType.UnverifiedContract ||
           spenderType === AddressType.EoaWithLowNonce ||
           spenderType === AddressType.ScamAddress) &&
-        (msgSenderType === AddressType.HighNumTxsUnverifiedContract ||
+        (msgSenderType === AddressType.UnverifiedContract ||
           msgSenderType === AddressType.EoaWithLowNonce ||
           msgSenderType === AddressType.ScamAddress)
       ) {
