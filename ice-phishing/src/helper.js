@@ -122,6 +122,40 @@ function createPermitScamAlert(msgSender, spender, owner, asset, scamAddresses, 
   });
 }
 
+function createApprovalScamAlert(scamSpender, owner, asset, scamDomains) {
+  return Finding.fromObject({
+    name: "Known scam address got approval to spend assets",
+    description: `Scam address ${scamSpender} got approval for ${owner}'s assets`,
+    alertId: "ICE-PHISHING-SCAM-APPROVAL",
+    severity: FindingSeverity.High,
+    type: FindingType.Suspicious,
+    metadata: {
+      scamDomains,
+      scamSpender,
+      owner,
+    },
+    addresses: [asset],
+  });
+}
+
+function createTransferScamAlert(msgSender, owner, receiver, asset, scamAddresses, scamDomains) {
+  return Finding.fromObject({
+    name: "Known scam address was involved in an asset transfer",
+    description: `${msgSender} transferred assets from ${owner} to ${receiver}`,
+    alertId: "ICE-PHISHING-SCAM-TRANSFER",
+    severity: FindingSeverity.Critical,
+    type: FindingType.Exploit,
+    metadata: {
+      scamAddresses,
+      scamDomains,
+      msgSender,
+      owner,
+      receiver,
+    },
+    addresses: [asset],
+  });
+}
+
 function createHighNumTransfersAlert(spender, transfersArray) {
   const { firstTxHash, lastTxHash, assets, accounts, days } = getEventInformation(transfersArray);
   return Finding.fromObject({
@@ -275,6 +309,8 @@ module.exports = {
   createApprovalForAllAlertERC1155,
   createPermitAlert,
   createPermitScamAlert,
+  createApprovalScamAlert,
+  createTransferScamAlert,
   getAddressType,
   getBalance,
   getERC1155Balance,

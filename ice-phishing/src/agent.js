@@ -10,6 +10,8 @@ const {
   createApprovalForAllAlertERC1155,
   createPermitAlert,
   createPermitScamAlert,
+  createApprovalScamAlert,
+  createTransferScamAlert,
   getAddressType,
   getBalance,
   getERC1155Balance,
@@ -127,14 +129,14 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         const scamDomains = scamSnifferDB.filter(
           (key) => scamSnifferDB[key].includes(txFrom) || scamSnifferDB[key].includes(spender)
         );
-        let scamAddresses;
+        let _scamAddresses;
         if (spenderType === AddressType.ScamAddress) {
-          scamAddresses.push(spender);
+          _scamAddresses.push(spender);
         }
         if (msgSenderType === AddressType.ScamAddress) {
-          scamAddresses.push(txFrom);
+          _scamAddresses.push(txFrom);
         }
-        createPermitScamAlert(txFrom, spender, owner, asset, scamAddresses, scamDomains);
+        createPermitScamAlert(txFrom, spender, owner, asset, _scamAddresses, scamDomains);
       }
     }
   });
@@ -252,6 +254,14 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         _approvals[spender].filter((a) => timestamp - a.timestamp < TIME_PERIOD);
       }
 
+      if (spenderType === AddressType.ScamAddress) {
+        const scamSnifferDB = await axios.get(
+          "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
+        ).data;
+        const scamDomains = scamSnifferDB.filter((key) => scamSnifferDB[key].includes(spender));
+        createApprovalScamAlert(spender, owner, asset, scamDomains);
+      }
+
       // Ignore the address until the end of the period if there are a lot of approvals
       if (approvals[spender].length > maxAddressAlertsPerPeriod) {
         const newType =
@@ -297,6 +307,25 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
           }
         }
       });
+
+      const txFromType = getAddressType(txFrom, scamAddresses, cachedAddresses, provider, blockNumber, chainId, false);
+      const toType = getAddressType(to, scamAddresses, cachedAddresses, provider, blockNumber, chainId, false);
+      if (txFromType === AddressType.ScamAddress || toType === AddressType.ScamAddress) {
+        const scamSnifferDB = await axios.get(
+          "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
+        ).data;
+        const scamDomains = scamSnifferDB.filter(
+          (key) => scamSnifferDB[key].includes(txFrom) || scamSnifferDB[key].includes(to)
+        );
+        let _scamAddresses;
+        if (toType === AddressType.ScamAddress) {
+          _scamAddresses.push(to);
+        }
+        if (txFromType === AddressType.ScamAddress) {
+          _scamAddresses.push(txFrom);
+        }
+        createTransferScamAlert(txFrom, from, to, asset, _scamAddresses, scamDomains);
+      }
 
       // Check if we have caught the approval
       // For ERC20: Check if there is an approval from the owner that isn't from the current tx

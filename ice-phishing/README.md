@@ -73,12 +73,36 @@ This bot detects if an account (EOA with low nonce or unverified account with lo
     - Severity is always set to "high"
     - Type is always set to "suspicious"
     - Metadata:
-      - `scamAddresses` - The list of known scam addresses that were involved in this permission
+      - `scamAddresses` - The list of known scam addresses that were involved in the permission
       - `scamDomains` - The list of domains related to the scam addresses
       - `msgSender` - the account that called the asset's `permit` function
-      - `spender` - the account that received the approval
+      - `spender` - the account that received the permission
       - `owner` - the owner of the assets
     - Addresses contain the permitted asset address
+
+- ICE-PHISHING-SCAM-APPROVAL
+
+  - Fired when a known scam address gets approval to spend assets.
+    - Severity is always set to "high"
+    - Type is always set to "suspicious"
+    - Metadata:
+      - `scamDomains` - The list of domains related to the scam addresses
+      - `scamSpender` - the account that received the approval
+      - `owner` - the owner of the assets
+    - Addresses contain the approved asset address
+
+- ICE-PHISHING-SCAM-TRANSFER
+
+  - Fired when a known scam address is involved in an asset transfer.
+    - Severity is always set to "critical"
+    - Type is always set to "exploit"
+    - Metadata:
+      - `scamAddresses` - The list of known scam addresses that were involved in the transfer
+      - `scamDomains` - The list of domains related to the scam addresses
+      - `msgSender` - The account that initiated the transfer
+      - `owner` - The owner of the assets
+      - `receiver` - The account that received the assets
+    - Addresses contain the transferred asset address
 
 - ICE-PHISHING-HIGH-NUM-APPROVED-TRANSFERS
 
