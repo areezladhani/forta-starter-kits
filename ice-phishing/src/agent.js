@@ -42,7 +42,7 @@ const approvalsForAll721 = {};
 const approvalsForAll1155 = {};
 const permissions = {};
 const transfers = {};
-let scamAddresses = {};
+let scamAddresses = [];
 
 // Every address is ~100B
 // 100_000 addresses are 10MB
@@ -164,7 +164,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       if (!approvals[spender]) approvals[spender] = [];
 
       if (isApprovalForAll) {
-        const assetCode = await provider.getCode(asset);
+        const assetCode = await getEthersProvider().getCode(asset);
         if (assetCode.includes(safeBatchTransferFrom1155Sig)) {
           if (!approvalsForAll1155[spender]) approvalsForAll1155[spender] = [];
           approvalsForAll1155[spender].push({
@@ -258,7 +258,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       const spenderPermissions = permissions[txFrom];
       if (!spenderApprovals && !spenderPermissions) return;
 
-      spenderPermissions.forEach((permission) => {
+      spenderPermissions?.forEach((permission) => {
         if (permission.asset === asset && permission.owner === from) {
           if (!permission.value || permission.value === value) {
             createPermitTransferAlert(txFrom, from, to, asset, value);
@@ -411,6 +411,7 @@ module.exports = {
   getApprovals: () => approvals, // Exported for unit tests
   getTransfers: () => transfers, // Exported for unit tests
   getCachedAddresses: () => cachedAddresses, // Exported for unit tests
+  getScamAddresses: () => scamAddresses, // Exported for unit tests
   resetLastTimestamp: () => {
     lastTimestamp = 0;
   },
