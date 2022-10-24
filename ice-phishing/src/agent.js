@@ -238,10 +238,10 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         });
       }
 
-      console.log("Detected possible malicious approval");
-      console.log(`owner: ${owner}`);
-      console.log(`spender: ${spender}`);
-      console.log(`asset: ${asset}`);
+      // console.log("Detected possible malicious approval");
+      // console.log(`owner: ${owner}`);
+      // console.log(`spender: ${spender}`);
+      // console.log(`asset: ${asset}`);
 
       // Update the approvals for the spender
       approvals[spender].push({
@@ -294,7 +294,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
   await Promise.all(
     transferEvents.map(async (event) => {
       const asset = event.address;
-      const { from, to, value, tokenId, tokenIds } = event.args;
+      const { from, to, value, values, tokenId, tokenIds } = event.args;
 
       // Filter out direct transfers and mints
       if (from === txFrom || from === ADDRESS_ZERO) return;
@@ -362,7 +362,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       transfers[txFrom] = transfers[txFrom].filter((a) => timestamp - a.timestamp < TIME_PERIOD);
 
       if (transfers[txFrom].length > transferCountThreshold) {
-        if (!tokenId) {
+        if (value || values) {
           if (tokenIds) {
             tokenIds.forEach(async (tokenId) => {
               const balance = ethers.BigNumber.from(
@@ -370,6 +370,11 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
               );
               if (!balance.eq(0)) return;
             });
+          } else if (tokenId) {
+            const balance = ethers.BigNumber.from(
+              await getERC1155Balance(asset, tokenId, from, provider, txEvent.blockNumber)
+            );
+            if (!balance.eq(0)) return;
           } else {
             const balance = ethers.BigNumber.from(await getBalance(asset, from, provider, txEvent.blockNumber));
             if (!balance.eq(0)) return;
