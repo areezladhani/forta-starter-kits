@@ -71,4 +71,5 @@ module.exports = {
   hashCode,
   getAddressType,
   getAssetSymbol,
+  TOKEN_ABI,
 };

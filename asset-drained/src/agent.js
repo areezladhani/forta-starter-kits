@@ -2,16 +2,11 @@ const { Finding, FindingSeverity, FindingType, ethers, getEthersProvider } = req
 const { MulticallProvider, MulticallContract } = require("forta-agent-tools");
 const LRU = require("lru-cache");
 
-const { getBlocksIn10Minutes, hashCode, getAddressType, getAssetSymbol } = require("./helper");
+const { getBlocksIn10Minutes, hashCode, getAddressType, getAssetSymbol, TOKEN_ABI } = require("./helper");
 const AddressType = require("./address-type");
 
 const ZERO = ethers.constants.Zero;
 const ERC20_TRANSFER_EVENT = "event Transfer(address indexed from, address indexed to, uint256 value)";
-const TOKEN_ABI = [
-  // TODO: only use once
-  "function balanceOf(address) public view returns (uint256)",
-  "function symbol() external view returns (string memory)",
-];
 
 const ethcallProvider = new MulticallProvider(getEthersProvider());
 
