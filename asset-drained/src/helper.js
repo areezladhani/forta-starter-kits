@@ -56,10 +56,11 @@ async function getAddressType(address, cachedAddresses) {
 async function getAssetSymbol(address, cachedAssetSymbols) {
   if (address === "native") return "native";
 
-  const contract = new ethers.Contract(address, TOKEN_ABI, getEthersProvider());
   if (cachedAssetSymbols.has(address)) {
     return cachedAssetSymbols.get(address);
   }
+
+  const contract = new ethers.Contract(address, TOKEN_ABI, getEthersProvider());
 
   const symbol = await contract.symbol();
   cachedAssetSymbols.set(address, symbol);
