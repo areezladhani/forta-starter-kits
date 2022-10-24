@@ -107,10 +107,12 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
 
     if (
       txFrom !== owner &&
-      spenderType ===
-        (AddressType.HighNumTxsUnverifiedContract || AddressType.EoaWithLowNonce || AddressType.ScamAddress) &&
-      msgSenderType ===
-        (AddressType.HighNumTxsUnverifiedContract || AddressType.EoaWithLowNonce || AddressType.ScamAddress)
+      (spenderType === AddressType.HighNumTxsUnverifiedContract ||
+        spenderType === AddressType.EoaWithLowNonce ||
+        spenderType === AddressType.ScamAddress) &&
+      (msgSenderType === AddressType.HighNumTxsUnverifiedContract ||
+        msgSenderType === AddressType.EoaWithLowNonce ||
+        msgSenderType === AddressType.ScamAddress)
     ) {
       if (!permissions[spender]) permissions[spender] = [];
       permissions[spender].push({
@@ -121,7 +123,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         value: value ? value : 0,
       });
       if (spenderType !== AddressType.ScamAddress && msgSenderType !== AddressType.ScamAddress) {
-        createPermitAlert(txFrom, spender, owner, asset);
+        findings.push(createPermitAlert(txFrom, spender, owner, asset));
       } else {
         const scamSnifferDB = await axios.get(
           "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
@@ -136,7 +138,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         if (msgSenderType === AddressType.ScamAddress) {
           _scamAddresses.push(txFrom);
         }
-        createPermitScamAlert(txFrom, spender, owner, asset, _scamAddresses, scamDomains);
+        findings.push(createPermitScamAlert(txFrom, spender, owner, asset, _scamAddresses, scamDomains));
       }
     }
   });
@@ -259,7 +261,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
           "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
         ).data;
         const scamDomains = scamSnifferDB.filter((key) => scamSnifferDB[key].includes(spender));
-        createApprovalScamAlert(spender, owner, asset, scamDomains);
+        findings.push(createApprovalScamAlert(spender, owner, asset, scamDomains));
       }
 
       // Ignore the address until the end of the period if there are a lot of approvals
@@ -303,7 +305,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       spenderPermissions?.forEach((permission) => {
         if (permission.asset === asset && permission.owner === from) {
           if (!permission.value || permission.value === value) {
-            createPermitTransferAlert(txFrom, from, to, asset, value);
+            findings.push(createPermitTransferAlert(txFrom, from, to, asset, value));
           }
         }
       });
@@ -324,7 +326,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         if (txFromType === AddressType.ScamAddress) {
           _scamAddresses.push(txFrom);
         }
-        createTransferScamAlert(txFrom, from, to, asset, _scamAddresses, scamDomains);
+        findings.push(createTransferScamAlert(txFrom, from, to, asset, _scamAddresses, scamDomains));
       }
 
       // Check if we have caught the approval
