@@ -1,5 +1,5 @@
 module.exports = {
-  Eoa: 'Eoa',
-  Contract: 'Contract',
-  Ignored: 'Ignored',
+  Eoa: "Eoa",
+  Contract: "Contract",
+  Ignored: "Ignored",
 };
