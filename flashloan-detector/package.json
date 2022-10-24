@@ -1,7 +1,8 @@
 {
   "name": "flashloan-detection-bot",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Forta bot that detects if a transaction contains a flashloan and the borrower made significant profit",
+  "repository": "https://github.com/NethermindEth/forta-starter-kits/tree/main/flashloan-detector",
   "chainIds": [
     1,
     10,
@@ -24,7 +25,8 @@
     "disable": "forta-agent disable",
     "enable": "forta-agent enable",
     "keyfile": "forta-agent keyfile",
-    "test": "jest"
+    "test": "jest --detectOpenHandles",
+    "format": "prettier --write \"src/**/*.js\""
   },
   "dependencies": {
     "axios": "^0.27.2",
@@ -32,9 +34,7 @@
     "forta-agent": "^0.1.6"
   },
   "devDependencies": {
-    "eslint": "^8.18.0",
-    "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-plugin-import": "^2.26.0",
+    "prettier": "^2.7.1",
     "jest": "^28.1.1",
     "nodemon": "^2.0.16"
   }

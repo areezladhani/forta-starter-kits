@@ -1,10 +1,10 @@
 /* eslint-disable no-plusplus */
-const { ethers, getEthersProvider, getTransactionReceipt } = require('forta-agent');
-const { Contract, Provider } = require('ethers-multicall');
-const axios = require('axios').default;
+const { ethers, getEthersProvider, getTransactionReceipt } = require("forta-agent");
+const { Contract, Provider } = require("ethers-multicall");
+const axios = require("axios").default;
 
 const zero = ethers.constants.Zero;
-const ABI = ['function decimals() external view returns (uint8)'];
+const ABI = ["function decimals() external view returns (uint8)"];
 
 const ethcallProvider = new Provider(getEthersProvider());
 
@@ -20,27 +20,43 @@ function getNativeTokenPrice(chain) {
 
 function getChainByChainId(chainId) {
   switch (chainId) {
-    case 1: return 'ethereum';
-    case 10: return 'optimistic-ethereum';
-    case 56: return 'binance-smart-chain';
-    case 137: return 'polygon-pos';
-    case 250: return 'fantom';
-    case 42161: return 'arbitrum-one';
-    case 43114: return 'avalanche';
-    default: return null;
+    case 1:
+      return "ethereum";
+    case 10:
+      return "optimistic-ethereum";
+    case 56:
+      return "binance-smart-chain";
+    case 137:
+      return "polygon-pos";
+    case 250:
+      return "fantom";
+    case 42161:
+      return "arbitrum-one";
+    case 43114:
+      return "avalanche";
+    default:
+      return null;
   }
 }
 
 function getNativeTokenByChainId(chainId) {
   switch (chainId) {
-    case 1: return 'ethereum';
-    case 10: return 'ethereum';
-    case 56: return 'binancecoin';
-    case 137: return 'matic-network';
-    case 250: return 'fantom';
-    case 42161: return 'ethereum';
-    case 43114: return 'avalanche-2';
-    default: return null;
+    case 1:
+      return "ethereum";
+    case 10:
+      return "ethereum";
+    case 56:
+      return "binancecoin";
+    case 137:
+      return "matic-network";
+    case 250:
+      return "fantom";
+    case 42161:
+      return "ethereum";
+    case 43114:
+      return "avalanche-2";
+    default:
+      return null;
   }
 }
 
@@ -86,18 +102,11 @@ module.exports = {
     let nativeProfit = zero;
 
     traces.forEach((trace) => {
-      const {
-        from,
-        to,
-        value,
-        callType,
-        balance,
-        refundAddress,
-      } = trace.action;
+      const { from, to, value, callType, balance, refundAddress } = trace.action;
 
       let val;
 
-      if (value && value !== '0x0' && callType === 'call') {
+      if (value && value !== "0x0" && callType === "call") {
         // If the trace is a call with non-zero value use the value
         val = ethers.BigNumber.from(value);
       } else if (balance && refundAddress) {
@@ -127,8 +136,7 @@ module.exports = {
       .reduce((obj, [key, value]) => Object.assign(obj, { [key]: value }), {});
 
     // Get the decimals for all tokens that are not cached
-    const newTokens = Object.keys(nonZeroProfits)
-      .filter((address) => !tokenDecimals[address]);
+    const newTokens = Object.keys(nonZeroProfits).filter((address) => !tokenDecimals[address]);
 
     const decimalCalls = newTokens.map((address) => {
       const contract = new Contract(address, ABI);
@@ -144,8 +152,8 @@ module.exports = {
     }
 
     // Calculate the usd profit based on the amount and the price
-    const usdTokenProfits = await Promise.all(Object.entries(nonZeroProfits)
-      .map(async ([address, profit]) => {
+    const usdTokenProfits = await Promise.all(
+      Object.entries(nonZeroProfits).map(async ([address, profit]) => {
         const response = await axios.get(getTokenPrice(chain, address));
         if (!response.data[address]) return 0;
 
@@ -153,24 +161,30 @@ module.exports = {
 
         const tokenAmount = ethers.utils.formatUnits(profit, tokenDecimals[address]);
         return tokenAmount * usdPrice;
-      }));
+      })
+    );
 
-    const totalTokensProfit = usdTokenProfits
-      .reduce((sum, profit) => sum + profit, 0);
+    const totalTokensProfit = usdTokenProfits.reduce((sum, profit) => sum + profit, 0);
 
     return totalTokensProfit;
   },
   async calculateNativeUsdProfit(amount, token) {
     const response = await axios.get(getNativeTokenPrice(token));
+    if (!response.data[token]) return 0;
+
     const usdPrice = response.data[token].usd;
 
-    // Does every chain has 18 decimals?
     const tokenAmount = ethers.utils.formatEther(amount);
     return tokenAmount * usdPrice;
   },
   async calculateBorrowedAmount(asset, amount, chain) {
     const response = await axios.get(getTokenPrice(chain, asset));
     const usdPrice = response.data[asset].usd;
+
+    //Setting a high price to avoid false positives as it's a borrowed amount
+    if (!response.data[asset]) {
+      usdPrice = 1_000_000;
+    }
 
     if (!tokenDecimals[asset]) {
       const contract = new Contract(asset, ABI);

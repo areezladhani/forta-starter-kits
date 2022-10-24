@@ -1,9 +1,10 @@
-const aaveFlashloanSig = 'event FlashLoan(address indexed target, address indexed initiator, address indexed asset, uint256 amount, uint256 premium, uint16 referralCode)';
+const aaveV3FlashloanSig =
+  "event FlashLoan(address indexed target, address initiator, address indexed asset, uint256 amount, uint8 interestRateMode, uint256 premium, uint16 indexed referralCode)";
 
 module.exports = {
-  getAaveFlashloan: (txEvent) => {
+  getAaveV3Flashloan: (txEvent) => {
     const flashloans = [];
-    const events = txEvent.filterLog(aaveFlashloanSig);
+    const events = txEvent.filterLog(aaveV3FlashloanSig);
 
     events.forEach((event) => {
       const { asset, amount, target } = event.args;

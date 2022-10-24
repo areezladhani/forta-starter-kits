@@ -1,11 +1,6 @@
-const {
-  Finding,
-  FindingSeverity,
-  FindingType,
-  ethers,
-} = require('forta-agent');
-const { getFlashloans: getFlashloansFn } = require('./flashloan-detector');
-const helperModule = require('./helper');
+const { Finding, FindingSeverity, FindingType, ethers } = require("forta-agent");
+const { getFlashloans: getFlashloansFn } = require("./flashloan-detector");
+const helperModule = require("./helper");
 
 let chain;
 let nativeToken;
@@ -21,8 +16,8 @@ function provideInitialize(helper) {
 }
 
 const transferEventSigs = [
-  'event Transfer(address indexed src, address indexed dst, uint wad)',
-  'event Withdrawal(address indexed src, uint256 wad)',
+  "event Transfer(address indexed src, address indexed dst, uint wad)",
+  "event Withdrawal(address indexed src, uint256 wad)",
 ];
 
 function provideHandleTransaction(helper, getFlashloans) {
@@ -37,20 +32,22 @@ function provideHandleTransaction(helper, getFlashloans) {
     const { traces } = txEvent;
 
     // For each flashloan calculate the token profits and the borrowed amount
-    const flashloansData = await Promise.all(flashloans.map(async (flashloan) => {
-      const { asset, amount, account } = flashloan;
+    const flashloansData = await Promise.all(
+      flashloans.map(async (flashloan) => {
+        const { asset, amount, account } = flashloan;
 
-      let tokenProfits = {};
-      let nativeProfit = helper.zero;
+        let tokenProfits = {};
+        let nativeProfit = helper.zero;
 
-      if (account !== initiator) {
-        tokenProfits = helper.calculateTokenProfits(transferEvents, account);
-        nativeProfit = helper.calculateNativeProfit(traces, account);
-      }
+        if (account !== initiator) {
+          tokenProfits = helper.calculateTokenProfits(transferEvents, account);
+          nativeProfit = helper.calculateNativeProfit(traces, account);
+        }
 
-      const borrowedAmountUsd = await helper.calculateBorrowedAmount(asset, amount, chain);
-      return { tokenProfits, nativeProfit, borrowedAmountUsd };
-    }));
+        const borrowedAmountUsd = await helper.calculateBorrowedAmount(asset, amount, chain);
+        return { tokenProfits, nativeProfit, borrowedAmountUsd };
+      })
+    );
 
     // Set the initial total profit to the initiator's profit
     const totalTokenProfits = helper.calculateTokenProfits(transferEvents, initiator);
@@ -92,48 +89,54 @@ function provideHandleTransaction(helper, getFlashloans) {
     const totalProfit = tokensUsdProfit + nativeUsdProfit;
     const percentage = (totalProfit / totalBorrowed) * 100;
 
-    console.log('Chain     :', chain);
-    console.log('TX hash   :', txEvent.hash);
-    console.log('Borrowed  :', totalBorrowed.toFixed(2));
-    console.log('Profit    :', totalProfit.toFixed(2));
-    console.log('Percentage:', percentage.toFixed(2));
+    console.log("Chain     :", chain);
+    console.log("TX hash   :", txEvent.hash);
+    console.log("Borrowed  :", totalBorrowed.toFixed(2));
+    console.log("Profit    :", totalProfit.toFixed(2));
+    console.log("Percentage:", percentage.toFixed(2));
 
     if (percentage > PERCENTAGE_THRESHOLD && totalProfit > PROFIT_THRESHOLD_WITH_HIGH_PERCENTAGE) {
-      findings.push(Finding.fromObject({
-        name: 'Flashloan detected',
-        description: `${initiator} launched flash loan attack and made profit > $${PROFIT_THRESHOLD_WITH_HIGH_PERCENTAGE}`,
-        alertId: 'FLASHLOAN-ATTACK-WITH-HIGH-PROFIT',
-        severity: FindingSeverity.High,
-        type: FindingType.Exploit,
-        metadata: {
-          profit: totalProfit.toFixed(2),
-          tokens: tokensArray,
-        },
-      }));
+      findings.push(
+        Finding.fromObject({
+          name: "Flashloan detected",
+          description: `${initiator} launched flash loan attack and made profit > $${PROFIT_THRESHOLD_WITH_HIGH_PERCENTAGE}`,
+          alertId: "FLASHLOAN-ATTACK-WITH-HIGH-PROFIT",
+          severity: FindingSeverity.High,
+          type: FindingType.Exploit,
+          metadata: {
+            profit: totalProfit.toFixed(2),
+            tokens: tokensArray,
+          },
+        })
+      );
     } else if (percentage > PERCENTAGE_THRESHOLD) {
-      findings.push(Finding.fromObject({
-        name: 'Flashloan detected',
-        description: `${initiator} launched flash loan attack`,
-        alertId: 'FLASHLOAN-ATTACK',
-        severity: FindingSeverity.Low,
-        type: FindingType.Exploit,
-        metadata: {
-          profit: totalProfit.toFixed(2),
-          tokens: tokensArray,
-        },
-      }));
+      findings.push(
+        Finding.fromObject({
+          name: "Flashloan detected",
+          description: `${initiator} launched flash loan attack`,
+          alertId: "FLASHLOAN-ATTACK",
+          severity: FindingSeverity.Low,
+          type: FindingType.Exploit,
+          metadata: {
+            profit: totalProfit.toFixed(2),
+            tokens: tokensArray,
+          },
+        })
+      );
     } else if (totalProfit > PROFIT_THRESHOLD) {
-      findings.push(Finding.fromObject({
-        name: 'Flashloan detected',
-        description: `${initiator} launched flash loan attack and made profit > $${PROFIT_THRESHOLD}`,
-        alertId: 'FLASHLOAN-ATTACK-WITH-HIGH-PROFIT',
-        severity: FindingSeverity.High,
-        type: FindingType.Exploit,
-        metadata: {
-          profit: totalProfit.toFixed(2),
-          tokens: tokensArray,
-        },
-      }));
+      findings.push(
+        Finding.fromObject({
+          name: "Flashloan detected",
+          description: `${initiator} launched flash loan attack and made profit > $${PROFIT_THRESHOLD}`,
+          alertId: "FLASHLOAN-ATTACK-WITH-HIGH-PROFIT",
+          severity: FindingSeverity.High,
+          type: FindingType.Exploit,
+          metadata: {
+            profit: totalProfit.toFixed(2),
+            tokens: tokensArray,
+          },
+        })
+      );
     }
 
     // Clear all cached prices and delete token decimals if the object is too large

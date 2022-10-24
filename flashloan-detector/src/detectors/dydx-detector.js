@@ -2,15 +2,17 @@
 /* eslint-disable no-restricted-syntax */
 /* eslint-disable no-plusplus */
 /* eslint-disable no-bitwise */
-const { ethers, getEthersProvider } = require('forta-agent');
+const { ethers, getEthersProvider } = require("forta-agent");
 
-const dydxSoloMarginAddress = '0x1e0447b19bb6ecfdae1e4ae1694b0c3659614e4e';
+const dydxSoloMarginAddress = "0x1e0447b19bb6ecfdae1e4ae1694b0c3659614e4e";
 const dydxEventSigs = [
-  'event LogDeposit(address indexed accountOwner, uint256 accountNumber, uint256 market, ((bool sign, uint256 value) deltaWei, tuple(bool sign, uint128 value) newPar) update, address from)',
-  'event LogWithdraw(address indexed accountOwner, uint256 accountNumber, uint256 market, ((bool sign, uint256 value) deltaWei, tuple(bool sign, uint128 value) newPar) update, address from)',
+  "event LogDeposit(address indexed accountOwner, uint256 accountNumber, uint256 market, ((bool sign, uint256 value) deltaWei, tuple(bool sign, uint128 value) newPar) update, address from)",
+  "event LogWithdraw(address indexed accountOwner, uint256 accountNumber, uint256 market, ((bool sign, uint256 value) deltaWei, tuple(bool sign, uint128 value) newPar) update, address from)",
 ];
 
-const ABI = ['function getMarket(uint256 marketId) public view returns (tuple(address token, tuple(uint128 borrow, uint128 supply) totalPar, tuple(uint96 borrow, uint96 supply, uint32 lastUpdate) index, address priceOracle, address interestSetter, tuple(uint256 value) marginPremium, tuple(uint256 value) spreadPremium, bool isClosing) memory)'];
+const ABI = [
+  "function getMarket(uint256 marketId) public view returns (tuple(address token, tuple(uint128 borrow, uint128 supply) totalPar, tuple(uint96 borrow, uint96 supply, uint32 lastUpdate) index, address priceOracle, address interestSetter, tuple(uint256 value) marginPremium, tuple(uint256 value) spreadPremium, bool isClosing) memory)",
+];
 
 const zero = ethers.constants.Zero;
 const two = ethers.BigNumber.from(2);
@@ -21,7 +23,7 @@ function hashCode(protocol, asset, account) {
   if (str.length === 0) return hash;
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
+    hash = (hash << 5) - hash + char;
     hash &= hash; // Convert to 32bit integer
   }
   return hash;
@@ -72,12 +74,7 @@ module.exports = {
 
     // For each market check if deposited - withdrawn is equal to 2
     Object.values(markets).forEach((market) => {
-      const {
-        asset,
-        account,
-        deposited,
-        withdrawn,
-      } = market;
+      const { asset, account, deposited, withdrawn } = market;
 
       if (deposited.sub(withdrawn).eq(two)) {
         flashloans.push({

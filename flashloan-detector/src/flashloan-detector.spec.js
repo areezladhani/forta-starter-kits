@@ -1,14 +1,14 @@
 /* eslint-disable no-plusplus */
-const { ethers } = require('forta-agent');
-const { getFlashloans } = require('./flashloan-detector');
+const { ethers } = require("forta-agent");
+const { getFlashloans } = require("./flashloan-detector");
 
-const asset = '0xasset';
-const amount = ethers.utils.parseUnits('100', 18);
-const account = '0xaccount';
-const market = '0xmarket';
+const asset = "0xasset";
+const amount = ethers.utils.parseUnits("100", 18);
+const account = "0xaccount";
+const market = "0xmarket";
 
-jest.mock('forta-agent', () => {
-  const original = jest.requireActual('forta-agent');
+jest.mock("forta-agent", () => {
+  const original = jest.requireActual("forta-agent");
   return {
     ...original,
     getEthersProvider: jest.fn(),
@@ -23,7 +23,11 @@ jest.mock('forta-agent', () => {
   };
 });
 
-const mockAaveEvent = {
+const mockAaveV2Event = {
+  args: { asset, amount, target: account },
+};
+
+const mockAaveV3Event = {
   args: { asset, amount, target: account },
 };
 
@@ -58,7 +62,7 @@ const mockDydxDepositEvent = {
 };
 
 const mockEulerBorrowEvent = {
-  name: 'Borrow',
+  name: "Borrow",
   address: market,
   args: {
     amount,
@@ -68,7 +72,7 @@ const mockEulerBorrowEvent = {
 };
 
 const mockEulerRepayEvent = {
-  name: 'Repay',
+  name: "Repay",
   address: market,
   args: {
     amount,
@@ -78,7 +82,7 @@ const mockEulerRepayEvent = {
 };
 
 const mockEulerRequestBorrowEvent = {
-  name: 'RequestBorrow',
+  name: "RequestBorrow",
   address: market,
   args: {
     amount,
@@ -98,7 +102,7 @@ const mockUniswapV2FunctionCall = {
   address: market,
   args: {
     to: account,
-    data: '0x00',
+    data: "0x00",
     amount0Out: amount,
     amount1Out: ethers.constants.Zero,
   },
@@ -113,7 +117,7 @@ const mockUniswapV3FunctionCall = {
   },
 };
 
-describe('FlashloanDetector library', () => {
+describe("FlashloanDetector library", () => {
   const mockTxEvent = {
     filterLog: jest.fn(),
     filterFunction: jest.fn(),
@@ -124,8 +128,8 @@ describe('FlashloanDetector library', () => {
     mockTxEvent.filterFunction.mockReset();
   });
 
-  describe('getFlashloans', () => {
-    it('should return empty array if there are no flashloans', async () => {
+  describe("getFlashloans", () => {
+    it("should return empty array if there are no flashloans", async () => {
       // Don't mock
       mockTxEvent.filterLog.mockReturnValue([]);
       mockTxEvent.filterFunction.mockReturnValue([]);
@@ -134,11 +138,15 @@ describe('FlashloanDetector library', () => {
       expect(flashloans).toStrictEqual([]);
     });
 
-    it('should return the all protocols if there is a flashloan from all', async () => {
-      mockTxEvent.filterLog.mockReturnValueOnce([mockAaveEvent]);
+    it("should return all the protocols if there is a flashloan from all", async () => {
+      mockTxEvent.filterLog.mockReturnValueOnce([mockAaveV2Event]);
+      mockTxEvent.filterLog.mockReturnValueOnce([mockAaveV3Event]);
       mockTxEvent.filterLog.mockReturnValueOnce([mockDydxDepositEvent, mockDydxWithdrawEvent]);
       mockTxEvent.filterLog.mockReturnValueOnce([
-        mockEulerRequestBorrowEvent, mockEulerBorrowEvent, mockEulerRepayEvent]);
+        mockEulerRequestBorrowEvent,
+        mockEulerBorrowEvent,
+        mockEulerRepayEvent,
+      ]);
       mockTxEvent.filterLog.mockReturnValueOnce([mockIronBankEvent]);
       mockTxEvent.filterLog.mockReturnValueOnce([mockMakerEvent]);
       mockTxEvent.filterFunction.mockReturnValueOnce([mockUniswapV2FunctionCall]);
@@ -148,8 +156,8 @@ describe('FlashloanDetector library', () => {
       const expectedFlashloanData = { account, amount, asset };
       const expectedArray = [];
 
-      // 7 flashloans: aave, dydx, euler, iron bank, maker, uniswap V2, uniswap V3
-      for (let i = 0; i < 7; i++) {
+      // 7 flashloans: aaveV2, aaveV3, dydx, euler, iron bank, maker, uniswap V2, uniswap V3
+      for (let i = 0; i < 8; i++) {
         expectedArray.push(expectedFlashloanData);
       }
 
