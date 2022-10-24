@@ -483,6 +483,8 @@ module.exports = {
   handleTransaction: provideHandleTransaction(getEthersProvider()),
   handleBlock,
   getApprovals: () => approvals, // Exported for unit tests
+  getERC20Approvals: () => approvalsERC20, // Exported for unit tests
+  getERC721Approvals: () => approvalsERC721, // Exported for unit tests
   getTransfers: () => transfers, // Exported for unit tests
   getCachedAddresses: () => cachedAddresses, // Exported for unit tests
   getScamAddresses: () => scamAddresses, // Exported for unit tests

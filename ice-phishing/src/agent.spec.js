@@ -5,6 +5,8 @@ const {
   provideHandleTransaction,
   handleBlock,
   getApprovals,
+  getERC20Approvals,
+  getERC721Approvals,
   getTransfers,
   getCachedAddresses,
   getScamAddresses,
@@ -102,7 +104,7 @@ const mockPermitFunctionCall = {
   },
 };
 
-const mockApprovalEvents = [
+const mockApprovalERC20Events = [
   {
     address: asset,
     name: "Approval",
@@ -128,6 +130,36 @@ const mockApprovalEvents = [
       owner: owner3,
       spender,
       value: ethers.BigNumber.from(5),
+    },
+  },
+];
+
+const mockApprovalERC721Events = [
+  {
+    address: asset,
+    name: "Approval",
+    args: {
+      owner: owner1,
+      spender,
+      tokenId: ethers.BigNumber.from(5),
+    },
+  },
+  {
+    address: asset,
+    name: "Approval",
+    args: {
+      owner: owner2,
+      spender,
+      tokenId: ethers.BigNumber.from(5),
+    },
+  },
+  {
+    address: asset,
+    name: "Approval",
+    args: {
+      owner: owner3,
+      spender,
+      tokenId: ethers.BigNumber.from(5),
     },
   },
 ];
@@ -162,34 +194,39 @@ describe("ice-phishing bot", () => {
     getCode: mockProviderGetCode,
     getTransactionCount: mockProviderGetTransactionCount,
   };
-  let handleTransaction;
 
   describe("provideHandleTransaction", () => {
-    const mockTxEvent = {
-      filterLog: jest.fn(),
-      filterFunction: jest.fn(),
-      hash: "hash2",
-      timestamp: 10000,
-      from: spender,
-    };
-
+    let mockTxEvent = {};
+    let handleTransaction;
     beforeAll(() => {
       const axiosResponse = { data: { status: "1" } };
       axios.get.mockResolvedValue(axiosResponse);
     });
 
     beforeEach(() => {
-      handleTransaction = provideHandleTransaction(mockProvider);
+      mockTxEvent = {
+        filterLog: jest.fn(),
+        filterFunction: jest.fn(),
+        hash: "hash2",
+        timestamp: 10000,
+        from: spender,
+      };
       mockTxEvent.filterLog.mockReset();
       mockTxEvent.filterFunction.mockReset();
-      //mockGetCode.mockReset();
-      mockProviderGetCode.mockReset();
-      //mockProviderGetTransactionCount.mockReset();
-      //jest.clearAllMocks();
+      mockGetCode.mockReset();
+      mockProviderGetCode.mockClear();
+      mockProviderGetTransactionCount.mockClear();
+      mockProvider.getCode.mockReset();
+      mockProvider.getTransactionCount.mockClear();
+      jest.clearAllMocks();
 
       Object.keys(getApprovals()).forEach((s) => delete getApprovals()[s]);
+      Object.keys(getERC721Approvals()).forEach((s) => delete getERC721Approvals()[s]);
+      Object.keys(getERC20Approvals()).forEach((s) => delete getERC20Approvals()[s]);
       Object.keys(getTransfers()).forEach((s) => delete getTransfers()[s]);
+      Object.keys(getScamAddresses()).forEach((s) => delete getScamAddresses()[s]);
       getCachedAddresses().clear();
+      handleTransaction = provideHandleTransaction(mockProvider);
     });
 
     it("should return empty findings if there are no Approval and Transfer events and no permit functions", async () => {
@@ -356,13 +393,13 @@ describe("ice-phishing bot", () => {
       ]);
     });
 
-    it("should return findings if there are a high number of Approval events", async () => {
+    it("should return findings if there are a high number of ERC20 Approval events", async () => {
       for (let i = 0; i < 2; i++) {
         const tempTxEvent = {
           filterFunction: jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([]),
           filterLog: jest
             .fn()
-            .mockReturnValueOnce([mockApprovalEvents[i]]) // ERC20 approvals
+            .mockReturnValueOnce([mockApprovalERC20Events[i]]) // ERC20 approvals
             .mockReturnValueOnce([]) // ERC721 approvals
             .mockReturnValueOnce([]) // ApprovalForAll
             .mockReturnValueOnce([]) // ERC20 transfers
@@ -378,7 +415,7 @@ describe("ice-phishing bot", () => {
       }
 
       mockTxEvent.filterLog
-        .mockReturnValueOnce([mockApprovalEvents[2]]) // ERC20 approvals
+        .mockReturnValueOnce([mockApprovalERC20Events[2]]) // ERC20 approvals
         .mockReturnValueOnce([]) // ERC721 approvals
         .mockReturnValueOnce([]) // ApprovalForAll
         .mockReturnValueOnce([]) // ERC20 transfers
@@ -406,6 +443,53 @@ describe("ice-phishing bot", () => {
       ]);
     });
 
+    it("should return findings if there are a high number of ERC721 Approval events", async () => {
+      for (let i = 0; i < 2; i++) {
+        const tempTxEvent = {
+          filterFunction: jest.fn().mockReturnValue([]).mockReturnValueOnce([]),
+          filterLog: jest
+            .fn()
+            .mockReturnValueOnce([]) // ERC20 approvals
+            .mockReturnValueOnce([mockApprovalERC721Events[i]]) // ERC721 approvals
+            .mockReturnValue([]) // ApprovalForAll
+            .mockReturnValueOnce([]) // ERC20 transfers
+            .mockReturnValueOnce([]) // ERC721 transfers
+            .mockReturnValueOnce([]), // ERC1155 transfers
+          hash: `hash${i}`,
+          timestamp: 1000 * i,
+          from: spender,
+        };
+        mockProvider.getCode.mockReturnValue("0x");
+        await handleTransaction(tempTxEvent);
+      }
+
+      mockTxEvent.filterLog
+        .mockReturnValueOnce([]) // ERC20 approvals
+        .mockReturnValueOnce([mockApprovalERC721Events[2]]) // ERC721 approvals
+        .mockReturnValueOnce([]) // ApprovalForAll
+        .mockReturnValueOnce([]) // ERC20 transfers
+        .mockReturnValueOnce([]) // ERC721 transfers
+        .mockReturnValueOnce([]); // ERC1155 transfers
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+
+      const findings = await handleTransaction(mockTxEvent);
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "High number of accounts granted approvals for ERC-721 tokens",
+          description: `${spender} obtained transfer approval for 1 ERC-721 tokens by 3 accounts over period of 1 days.`,
+          alertId: "ICE-PHISHING-HIGH-NUM-ERC721-APPROVALS",
+          severity: FindingSeverity.Low,
+          type: FindingType.Suspicious,
+          metadata: {
+            firstTxHash: "hash0",
+            lastTxHash: "hash2",
+          },
+          addresses: [asset],
+        }),
+      ]);
+    });
+
     it("should return findings if there are a high number of Transfer events", async () => {
       // Create the Approval events first
       for (let i = 0; i < 3; i++) {
@@ -413,7 +497,7 @@ describe("ice-phishing bot", () => {
           filterFunction: jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([]),
           filterLog: jest
             .fn()
-            .mockReturnValueOnce([mockApprovalEvents[i]]) // ERC20 approvals
+            .mockReturnValueOnce([mockApprovalERC20Events[i]]) // ERC20 approvals
             .mockReturnValueOnce([]) // ERC721 approvals
             .mockReturnValueOnce([]) // ApprovalForAll
             .mockReturnValueOnce([]) // ERC20 transfers
@@ -433,7 +517,7 @@ describe("ice-phishing bot", () => {
           filterFunction: jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([]),
           filterLog: jest
             .fn()
-            .mockReturnValueOnce([mockApprovalEvents[i]]) // ERC20 approvals
+            .mockReturnValueOnce([mockApprovalERC20Events[i]]) // ERC20 approvals
             .mockReturnValueOnce([]) // ERC721 approvals
             .mockReturnValueOnce([]) // ApprovalForAll
             .mockReturnValueOnce([mockTransferEvents[i]]) // ERC20 transfers
@@ -448,7 +532,7 @@ describe("ice-phishing bot", () => {
       }
 
       mockTxEvent.filterLog
-        .mockReturnValueOnce([mockApprovalEvents[2]]) // ERC20 approvals
+        .mockReturnValueOnce([mockApprovalERC20Events[2]]) // ERC20 approvals
         .mockReturnValueOnce([]) // ERC721 approvals
         .mockReturnValueOnce([]) // ApprovalForAll
         .mockReturnValueOnce([mockTransferEvents[2]]) // ERC20 transfers
