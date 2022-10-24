@@ -371,7 +371,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       transfers[txFrom] = transfers[txFrom].filter((a) => timestamp - a.timestamp < TIME_PERIOD);
 
       if (transfers[txFrom].length > transferCountThreshold) {
-        if (value || values) {
+        if (value || (values && values.length > 0)) {
           if (tokenIds) {
             tokenIds.forEach(async (tokenId) => {
               const balance = ethers.BigNumber.from(
