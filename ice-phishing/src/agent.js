@@ -329,9 +329,18 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       transfers[txFrom] = transfers[txFrom].filter((a) => timestamp - a.timestamp < TIME_PERIOD);
 
       if (transfers[txFrom].length > transferCountThreshold) {
-        if (!(tokenId || tokenIds)) {
-          const balance = ethers.BigNumber.from(await getBalance(asset, from, provider, txEvent.blockNumber));
-          if (!balance.eq(0)) return;
+        if (!tokenId) {
+          if (tokenIds) {
+            tokenIds.forEach(async (tokenId) => {
+              const balance = ethers.BigNumber.from(
+                await getERC1155Balance(asset, tokenId, from, provider, txEvent.blockNumber)
+              );
+              if (!balance.eq(0)) return;
+            });
+          } else {
+            const balance = ethers.BigNumber.from(await getBalance(asset, from, provider, txEvent.blockNumber));
+            if (!balance.eq(0)) return;
+          }
         }
         findings.push(createHighNumTransfersAlert(txFrom, transfers[txFrom]));
       }
