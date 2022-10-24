@@ -7,10 +7,11 @@ const {
   getApprovals,
   getERC20Approvals,
   getERC721Approvals,
+  getERC721ApprovalsForAll,
+  getERC1155ApprovalsForAll,
   getPermissions,
   getTransfers,
   getCachedAddresses,
-  getScamAddresses,
   resetLastTimestamp,
 } = require("./agent");
 
@@ -112,6 +113,7 @@ const mockDAILikePermitFunctionCall = {
   args: {
     owner: owner1,
     spender,
+    expiry: 8359543534435,
   },
 };
 
@@ -379,14 +381,12 @@ describe("ice-phishing bot", () => {
       mockProvider.getCode.mockReset();
       mockProvider.getTransactionCount.mockClear();
       mockBalanceOf.mockReset();
-      jest.clearAllMocks();
 
       Object.keys(getApprovals()).forEach((s) => delete getApprovals()[s]);
       Object.keys(getERC721Approvals()).forEach((s) => delete getERC721Approvals()[s]);
       Object.keys(getERC20Approvals()).forEach((s) => delete getERC20Approvals()[s]);
       Object.keys(getPermissions()).forEach((s) => delete getPermissions()[s]);
       Object.keys(getTransfers()).forEach((s) => delete getTransfers()[s]);
-      Object.keys(getScamAddresses()).forEach((s) => delete getScamAddresses()[s]);
       getCachedAddresses().clear();
       handleTransaction = provideHandleTransaction(mockProvider);
     });
@@ -1200,7 +1200,7 @@ describe("ice-phishing bot", () => {
       ]);
     });
 
-    it.only("should return findings if a scam address is involved in a transfer", async () => {
+    it("should return findings if a scam address is involved in a transfer", async () => {
       const mockBlockEvent = { block: { timestamp: 1000 } };
       const axiosResponse = { data: [spender] };
       axios.get.mockResolvedValueOnce(axiosResponse);
@@ -1246,37 +1246,74 @@ describe("ice-phishing bot", () => {
 
     beforeEach(() => {
       resetLastTimestamp();
+      const axiosResponse = { data: { status: "1" } };
+      axios.get.mockResolvedValue(axiosResponse);
       Object.keys(getApprovals()).forEach((s) => delete getApprovals()[s]);
+      Object.keys(getERC20Approvals()).forEach((s) => delete getERC20Approvals()[s]);
+      Object.keys(getERC721Approvals()).forEach((s) => delete getERC721Approvals()[s]);
+      Object.keys(getERC721ApprovalsForAll()).forEach((s) => delete getERC721ApprovalsForAll()[s]);
+      Object.keys(getERC1155ApprovalsForAll()).forEach((s) => delete getERC1155ApprovalsForAll()[s]);
+      Object.keys(getPermissions()).forEach((s) => delete getPermissions()[s]);
       Object.keys(getTransfers()).forEach((s) => delete getTransfers()[s]);
     });
 
     it("should do nothing if enough time has not passed", async () => {
       const mockBlockEvent = { block: { timestamp: 1000 } };
       getApprovals()[spender] = [{ timestamp: 1000 }];
+      getERC20Approvals()[spender] = [{ timestamp: 1000 }];
+      getERC721Approvals()[spender] = [{ timestamp: 1000 }];
+      getERC721ApprovalsForAll()[spender] = [{ timestamp: 1000 }];
+      getERC1155ApprovalsForAll()[spender] = [{ timestamp: 1000 }];
+      getPermissions()[spender] = [{ deadline: 10 }];
       getTransfers()[spender] = [{ timestamp: 1000 }];
       await handleBlock(mockBlockEvent);
 
       expect(Object.keys(getApprovals()).length).toStrictEqual(1);
+      expect(Object.keys(getERC20Approvals()).length).toStrictEqual(1);
+      expect(Object.keys(getERC721Approvals()).length).toStrictEqual(1);
+      expect(Object.keys(getERC721ApprovalsForAll()).length).toStrictEqual(1);
+      expect(Object.keys(getERC1155ApprovalsForAll()).length).toStrictEqual(1);
+      expect(Object.keys(getPermissions()).length).toStrictEqual(1);
       expect(Object.keys(getTransfers()).length).toStrictEqual(1);
     });
 
-    it("should not delete the entry if it was updated recently", async () => {
+    it("should not delete the entry if it was updated recently/permission deadline has not passed", async () => {
       const mockBlockEvent = { block: { timestamp: timePeriod } };
       getApprovals()[spender] = [{ timestamp: timePeriod }];
+      getERC20Approvals()[spender] = [{ timestamp: timePeriod }];
+      getERC721Approvals()[spender] = [{ timestamp: timePeriod }];
+      getERC721ApprovalsForAll()[spender] = [{ timestamp: timePeriod }];
+      getERC1155ApprovalsForAll()[spender] = [{ timestamp: timePeriod }];
+      getPermissions()[spender] = [{ deadline: 5184001 }];
       getTransfers()[spender] = [{ timestamp: timePeriod }];
       await handleBlock(mockBlockEvent);
 
       expect(Object.keys(getApprovals()).length).toStrictEqual(1);
+      expect(Object.keys(getERC20Approvals()).length).toStrictEqual(1);
+      expect(Object.keys(getERC721Approvals()).length).toStrictEqual(1);
+      expect(Object.keys(getERC721ApprovalsForAll()).length).toStrictEqual(1);
+      expect(Object.keys(getERC1155ApprovalsForAll()).length).toStrictEqual(1);
+      expect(Object.keys(getPermissions()).length).toStrictEqual(1);
       expect(Object.keys(getTransfers()).length).toStrictEqual(1);
     });
 
     it("should delete the entry if it was not updated recently", async () => {
       const mockBlockEvent = { block: { timestamp: timePeriod } };
       getApprovals()[spender] = [{ timestamp: 1000 }];
+      getERC20Approvals()[spender] = [{ timestamp: 1000 }];
+      getERC721Approvals()[spender] = [{ timestamp: 1000 }];
+      getERC721ApprovalsForAll()[spender] = [{ timestamp: 1000 }];
+      getERC1155ApprovalsForAll()[spender] = [{ timestamp: 1000 }];
+      getPermissions()[spender] = [{ deadline: 1000 }];
       getTransfers()[spender] = [{ timestamp: 1000 }];
       await handleBlock(mockBlockEvent);
 
       expect(Object.keys(getApprovals()).length).toStrictEqual(0);
+      expect(Object.keys(getERC20Approvals()).length).toStrictEqual(0);
+      expect(Object.keys(getERC721Approvals()).length).toStrictEqual(0);
+      expect(Object.keys(getERC721ApprovalsForAll()).length).toStrictEqual(0);
+      expect(Object.keys(getERC1155ApprovalsForAll()).length).toStrictEqual(0);
+      expect(Object.keys(getPermissions()).length).toStrictEqual(0);
       expect(Object.keys(getTransfers()).length).toStrictEqual(0);
     });
   });
