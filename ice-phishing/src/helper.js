@@ -175,7 +175,7 @@ function createHighNumTransfersAlert(spender, transfersArray) {
 function createPermitTransferAlert(spender, owner, receiver, asset, value) {
   return Finding.fromObject({
     name: "Previously permitted assets transferred",
-    description: `${spender} transferred ${value} tokens from ${from} to ${to}`,
+    description: `${spender} transferred ${value} tokens from ${owner} to ${receiver}`,
     alertId: "ICE-PHISHING-PERMITTED-ERC20-TRANSFER",
     severity: FindingSeverity.Critical,
     type: FindingType.Exploit,
