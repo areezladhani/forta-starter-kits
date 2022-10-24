@@ -81,67 +81,69 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
     ...txEvent.filterLog(erc1155transferEventABI),
   ];
 
-  permitFunctions.map(async (func) => {
-    const { address: asset } = func;
-    const { owner, spender, deadline, value } = func.args;
+  await Promise.all(
+    permitFunctions.map(async (func) => {
+      const { address: asset } = func;
+      const { owner, spender, deadline, value } = func.args;
 
-    const msgSenderType = await getAddressType(
-      txFrom,
-      scamAddresses,
-      cachedAddresses,
-      provider,
-      blockNumber,
-      chainId,
-      false
-    );
+      const msgSenderType = await getAddressType(
+        txFrom,
+        scamAddresses,
+        cachedAddresses,
+        provider,
+        blockNumber,
+        chainId,
+        false
+      );
 
-    const spenderType = await getAddressType(
-      spender,
-      scamAddresses,
-      cachedAddresses,
-      provider,
-      blockNumber,
-      chainId,
-      false
-    );
+      const spenderType = await getAddressType(
+        spender,
+        scamAddresses,
+        cachedAddresses,
+        provider,
+        blockNumber,
+        chainId,
+        false
+      );
 
-    if (
-      txFrom !== owner &&
-      (spenderType === AddressType.HighNumTxsUnverifiedContract ||
-        spenderType === AddressType.EoaWithLowNonce ||
-        spenderType === AddressType.ScamAddress) &&
-      (msgSenderType === AddressType.HighNumTxsUnverifiedContract ||
-        msgSenderType === AddressType.EoaWithLowNonce ||
-        msgSenderType === AddressType.ScamAddress)
-    ) {
-      if (!permissions[spender]) permissions[spender] = [];
-      permissions[spender].push({
-        asset,
-        owner,
-        hash,
-        deadline,
-        value: value ? value : 0,
-      });
-      if (spenderType !== AddressType.ScamAddress && msgSenderType !== AddressType.ScamAddress) {
-        findings.push(createPermitAlert(txFrom, spender, owner, asset));
-      } else {
-        const scamSnifferDB = await axios.get(
-          "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
-        ).data;
-        const scamDomains = scamSnifferDB.filter(
-          (key) => scamSnifferDB[key].includes(txFrom) || scamSnifferDB[key].includes(spender)
-        );
-        let _scamAddresses;
-        if (spenderType === AddressType.ScamAddress) {
-          _scamAddresses.push(spender);
+      if (
+        txFrom !== owner &&
+        (spenderType === AddressType.HighNumTxsUnverifiedContract ||
+          spenderType === AddressType.EoaWithLowNonce ||
+          spenderType === AddressType.ScamAddress) &&
+        (msgSenderType === AddressType.HighNumTxsUnverifiedContract ||
+          msgSenderType === AddressType.EoaWithLowNonce ||
+          msgSenderType === AddressType.ScamAddress)
+      ) {
+        if (!permissions[spender]) permissions[spender] = [];
+        permissions[spender].push({
+          asset,
+          owner,
+          hash,
+          deadline,
+          value: value ? value : 0,
+        });
+        if (spenderType !== AddressType.ScamAddress && msgSenderType !== AddressType.ScamAddress) {
+          findings.push(createPermitAlert(txFrom, spender, owner, asset));
+        } else {
+          const scamSnifferDB = await axios.get(
+            "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
+          ).data;
+          const scamDomains = scamSnifferDB.filter(
+            (key) => scamSnifferDB[key].includes(txFrom) || scamSnifferDB[key].includes(spender)
+          );
+          let _scamAddresses;
+          if (spenderType === AddressType.ScamAddress) {
+            _scamAddresses.push(spender);
+          }
+          if (msgSenderType === AddressType.ScamAddress) {
+            _scamAddresses.push(txFrom);
+          }
+          findings.push(createPermitScamAlert(txFrom, spender, owner, asset, _scamAddresses, scamDomains));
         }
-        if (msgSenderType === AddressType.ScamAddress) {
-          _scamAddresses.push(txFrom);
-        }
-        findings.push(createPermitScamAlert(txFrom, spender, owner, asset, _scamAddresses, scamDomains));
       }
-    }
-  });
+    })
+  );
 
   await Promise.all(
     approvalEvents.map(async (event) => {

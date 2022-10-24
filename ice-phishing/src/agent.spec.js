@@ -23,6 +23,7 @@ const owner1 = createAddress("0x02");
 const owner2 = createAddress("0x03");
 const owner3 = createAddress("0x04");
 const asset = createAddress("0x05");
+const txFrom = createAddress("0x06");
 
 // Mock the config file
 jest.mock(
@@ -90,6 +91,16 @@ const mockApprovalForAllEvent = [
     },
   },
 ];
+
+const mockPermitFunctionCall = {
+  address: asset,
+  args: {
+    owner: owner1,
+    spender,
+    deadline: 9359543534435,
+    value: ethers.BigNumber.from(435345634435),
+  },
+};
 
 const mockApprovalEvents = [
   {
@@ -197,6 +208,31 @@ describe("ice-phishing bot", () => {
       expect(mockTxEvent.filterLog).toHaveBeenCalledTimes(6);
       expect(mockTxEvent.filterFunction).toHaveBeenCalledTimes(2);
       expect(mockGetCode).toHaveBeenCalledTimes(0);
+    });
+
+    it("should return findings if there is a permit function call", async () => {
+      mockTxEvent.filterFunction.mockReturnValueOnce([mockPermitFunctionCall]).mockReturnValueOnce([]);
+      mockTxEvent.filterLog.mockReturnValue([]);
+      mockProvider.getCode.mockReturnValue("0x");
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Account got permission for ERC-20 tokens",
+          description: `${spender} gave permission to ${spender} for ${owner1}'s ERC-20 tokens`,
+          alertId: "ICE-PHISHING-ERC20-PERMIT",
+          severity: FindingSeverity.Low,
+          type: FindingType.Suspicious,
+          metadata: {
+            msgSender: spender,
+            owner: owner1,
+            spender,
+          },
+          addresses: [asset],
+        }),
+      ]);
+      expect(mockTxEvent.filterLog).toHaveBeenCalledTimes(6);
+      expect(mockTxEvent.filterFunction).toHaveBeenCalledTimes(2);
     });
 
     it("should return findings if there is a high number of ERC1155 ApprovalForAll events", async () => {
@@ -421,7 +457,7 @@ describe("ice-phishing bot", () => {
 
       mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
       mockBalanceOf.mockResolvedValueOnce(ethers.BigNumber.from(0));
-      expect(mockProvider.getCode).toHaveBeenCalledTimes(4);
+      expect(mockProvider.getCode).toHaveBeenCalledTimes(5);
 
       const findings = await handleTransaction(mockTxEvent);
 
