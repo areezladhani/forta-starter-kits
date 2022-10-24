@@ -128,11 +128,11 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         } else {
           const scamSnifferDB = await axios.get(
             "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
-          ).data;
-          const scamDomains = scamSnifferDB.filter(
-            (key) => scamSnifferDB[key].includes(txFrom) || scamSnifferDB[key].includes(spender)
           );
-          let _scamAddresses;
+          const scamDomains = Object.keys(scamSnifferDB.data).filter(
+            (key) => scamSnifferDB.data[key].includes(txFrom) || scamSnifferDB.data[key].includes(spender)
+          );
+          let _scamAddresses = [];
           if (spenderType === AddressType.ScamAddress) {
             _scamAddresses.push(spender);
           }
@@ -257,12 +257,11 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         if (!_approvals[spender]) continue;
         _approvals[spender].filter((a) => timestamp - a.timestamp < TIME_PERIOD);
       }
-
       if (spenderType === AddressType.ScamAddress) {
         const scamSnifferDB = await axios.get(
           "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
-        ).data;
-        const scamDomains = scamSnifferDB.filter((key) => scamSnifferDB[key].includes(spender));
+        );
+        const scamDomains = Object.keys(scamSnifferDB.data).filter((key) => scamSnifferDB.data[key].includes(spender));
         findings.push(createApprovalScamAlert(spender, owner, asset, scamDomains));
       }
 
@@ -299,6 +298,33 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       // Filter out direct transfers and mints
       if (from === txFrom || from === ADDRESS_ZERO) return;
 
+      const txFromType = await getAddressType(
+        txFrom,
+        scamAddresses,
+        cachedAddresses,
+        provider,
+        blockNumber,
+        chainId,
+        false
+      );
+      const toType = await getAddressType(to, scamAddresses, cachedAddresses, provider, blockNumber, chainId, false);
+      if (txFromType === AddressType.ScamAddress || toType === AddressType.ScamAddress) {
+        const scamSnifferDB = await axios.get(
+          "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
+        );
+        const scamDomains = Object.keys(scamSnifferDB.data).filter(
+          (key) => scamSnifferDB.data[key].includes(txFrom) || scamSnifferDB.data[key].includes(to)
+        );
+        let _scamAddresses = [];
+        if (toType === AddressType.ScamAddress) {
+          _scamAddresses.push(to);
+        }
+        if (txFromType === AddressType.ScamAddress) {
+          _scamAddresses.push(txFrom);
+        }
+        findings.push(createTransferScamAlert(txFrom, from, to, asset, _scamAddresses, scamDomains));
+      }
+
       // Check if we monitor the spender
       const spenderApprovals = approvals[txFrom];
       const spenderPermissions = permissions[txFrom];
@@ -312,24 +338,6 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         }
       });
 
-      const txFromType = getAddressType(txFrom, scamAddresses, cachedAddresses, provider, blockNumber, chainId, false);
-      const toType = getAddressType(to, scamAddresses, cachedAddresses, provider, blockNumber, chainId, false);
-      if (txFromType === AddressType.ScamAddress || toType === AddressType.ScamAddress) {
-        const scamSnifferDB = await axios.get(
-          "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
-        ).data;
-        const scamDomains = scamSnifferDB.filter(
-          (key) => scamSnifferDB[key].includes(txFrom) || scamSnifferDB[key].includes(to)
-        );
-        let _scamAddresses;
-        if (toType === AddressType.ScamAddress) {
-          _scamAddresses.push(to);
-        }
-        if (txFromType === AddressType.ScamAddress) {
-          _scamAddresses.push(txFrom);
-        }
-        findings.push(createTransferScamAlert(txFrom, from, to, asset, _scamAddresses, scamDomains));
-      }
       if (spenderApprovals) {
         // Check if we have caught the approval
         // For ERC20: Check if there is an approval from the owner that isn't from the current tx
