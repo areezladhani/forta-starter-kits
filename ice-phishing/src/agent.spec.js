@@ -171,6 +171,8 @@ describe("ice-phishing bot", () => {
       mockTxEvent.filterLog.mockReset();
       mockTxEvent.filterFunction.mockReset();
       mockGetCode.mockReset();
+      mockProvider.getCode.mockReset();
+      mockProvider.getTransactionCount.mockReset();
 
       Object.keys(getApprovals()).forEach((s) => delete getApprovals()[s]);
       Object.keys(getTransfers()).forEach((s) => delete getTransfers()[s]);
@@ -246,6 +248,57 @@ describe("ice-phishing bot", () => {
       ]);
     });
 
+    it("should return findings if there is an ApprovalForAll event", async () => {
+      for (let i = 0; i < 2; i++) {
+        const tempTxEvent = {
+          filterFunction: jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([]),
+          filterLog: jest
+            .fn()
+            .mockReturnValueOnce([]) // ERC20 approvals
+            .mockReturnValueOnce([]) // ERC721 approvals
+            .mockReturnValueOnce([mockApprovalForAllEvent[i]]) // ApprovalForAll
+            .mockReturnValueOnce([]) // ERC20 transfers
+            .mockReturnValueOnce([]) // ERC721 transfers
+            .mockReturnValueOnce([]), // ERC1155 transfers
+          hash: `hash${i}`,
+          timestamp: 1000 * i,
+          from: spender,
+        };
+        mockProvider.getCode.mockReturnValue("0x");
+        mockProvider.getTransactionCount.mockReturnValue(1);
+        await handleTransaction(tempTxEvent);
+      }
+
+      mockTxEvent.filterLog
+        .mockReturnValueOnce([]) // ERC20 approvals
+        .mockReturnValueOnce([]) // ERC721 approvals
+        .mockReturnValueOnce([mockApprovalForAllEvent[2]]) // ApprovalForAll
+        .mockReturnValueOnce([]) // ERC20 transfers
+        .mockReturnValueOnce([]) // ERC721 transfers
+        .mockReturnValueOnce([]); // ERC1155 transfers
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+      mockProvider.getCode.mockReturnValue("0x");
+      mockProvider.getTransactionCount.mockReturnValue(1);
+      expect(mockProvider.getCode).toHaveBeenCalledTimes(5);
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Account got approval for all ERC-721 tokens",
+          description: `${spender} obtained transfer approval for all ERC-721 tokens from ${owner3}`,
+          alertId: "ICE-PHISHING-ERC721-APPROVAL-FOR-ALL",
+          severity: FindingSeverity.Low,
+          type: FindingType.Suspicious,
+          metadata: {
+            spender,
+            owner: owner3,
+          },
+          addresses: [asset],
+        }),
+      ]);
+    });
+
     it("should return findings if there are a high number of Approval events", async () => {
       for (let i = 0; i < 2; i++) {
         const tempTxEvent = {
@@ -262,7 +315,7 @@ describe("ice-phishing bot", () => {
           timestamp: 1000 * i,
           from: spender,
         };
-        mockProvider.getCode.mockReturnValueOnce("0x");
+        mockProvider.getCode.mockReturnValue("0x");
 
         await handleTransaction(tempTxEvent);
       }
@@ -276,7 +329,8 @@ describe("ice-phishing bot", () => {
         .mockReturnValueOnce([]); // ERC1155 transfers
 
       mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
-      mockProvider.getCode.mockReturnValueOnce("0x");
+      mockProvider.getCode.mockReturnValue("0x");
+      expect(mockProvider.getCode).toHaveBeenCalledTimes(3);
       const findings = await handleTransaction(mockTxEvent);
 
       expect(findings).toStrictEqual([
@@ -312,6 +366,7 @@ describe("ice-phishing bot", () => {
           timestamp: 1000 * i,
           from: spender,
         };
+        mockProvider.getCode.mockReturnValue("0x");
 
         await handleTransaction(tempTxEvent);
       }
@@ -345,6 +400,7 @@ describe("ice-phishing bot", () => {
 
       mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
       mockBalanceOf.mockResolvedValueOnce(ethers.BigNumber.from(0));
+      expect(mockProvider.getCode).toHaveBeenCalledTimes(4);
 
       const findings = await handleTransaction(mockTxEvent);
 
