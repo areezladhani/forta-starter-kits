@@ -1,4 +1,4 @@
-const { FindingType, FindingSeverity, Finding, ethers, getEthersProvider } = require("forta-agent");
+const { FindingType, FindingSeverity, Finding, ethers } = require("forta-agent");
 const axios = require("axios");
 const { createAddress } = require("forta-agent-tools");
 const {
@@ -52,7 +52,6 @@ jest.mock("forta-agent", () => {
   const original = jest.requireActual("forta-agent");
   return {
     ...original,
-    getEthersProvider: jest.fn(),
     ethers: {
       ...original.ethers,
       Contract: jest.fn().mockImplementation(() => ({
@@ -61,12 +60,6 @@ jest.mock("forta-agent", () => {
     },
   };
 });
-
-const mockGetCode = jest.fn();
-getEthersProvider.mockImplementation(() => ({
-  getCode: () => "0x",
-  getTransactionCount: () => 1,
-}));
 
 const mockApprovalForAllEvent = [
   {
@@ -349,12 +342,10 @@ const mockTransferBatchEvents = [
   },
 ];
 
-const mockProviderGetCode = jest.fn();
-const mockProviderGetTransactionCount = jest.fn();
 describe("ice-phishing bot", () => {
   const mockProvider = {
-    getCode: mockProviderGetCode,
-    getTransactionCount: mockProviderGetTransactionCount,
+    getCode: jest.fn(),
+    getTransactionCount: jest.fn(),
   };
 
   describe("provideHandleTransaction", () => {
@@ -375,11 +366,8 @@ describe("ice-phishing bot", () => {
       };
       mockTxEvent.filterLog.mockReset();
       mockTxEvent.filterFunction.mockReset();
-      mockGetCode.mockReset();
-      mockProviderGetCode.mockClear();
-      mockProviderGetTransactionCount.mockClear();
       mockProvider.getCode.mockReset();
-      mockProvider.getTransactionCount.mockClear();
+      mockProvider.getTransactionCount.mockReset();
       mockBalanceOf.mockReset();
 
       Object.keys(getApprovals()).forEach((s) => delete getApprovals()[s]);
@@ -391,7 +379,7 @@ describe("ice-phishing bot", () => {
       handleTransaction = provideHandleTransaction(mockProvider);
     });
 
-    it("should return empty findings if there are no Approval and Transfer events and no permit functions", async () => {
+    it("should return empty findings if there are no Approval & Transfer events and no permit functions", async () => {
       mockTxEvent.filterLog
         .mockReturnValueOnce([]) // ERC20 approvals
         .mockReturnValueOnce([]) // ERC721 approvals
@@ -406,7 +394,6 @@ describe("ice-phishing bot", () => {
       expect(findings).toStrictEqual([]);
       expect(mockTxEvent.filterLog).toHaveBeenCalledTimes(6);
       expect(mockTxEvent.filterFunction).toHaveBeenCalledTimes(2);
-      expect(mockGetCode).toHaveBeenCalledTimes(0);
     });
 
     it("should return findings if there is a EIP-2612's permit function call", async () => {
@@ -1162,7 +1149,7 @@ describe("ice-phishing bot", () => {
       ]);
     });
 
-    it("should return findings if a scam address has been given approval", async () => {
+    it("should return findings if a scam address has been approved", async () => {
       const mockBlockEvent = { block: { timestamp: 1000 } };
       const axiosResponse = { data: [spender] };
       axios.get.mockResolvedValueOnce(axiosResponse);
@@ -1297,7 +1284,7 @@ describe("ice-phishing bot", () => {
       expect(Object.keys(getTransfers()).length).toStrictEqual(1);
     });
 
-    it("should delete the entry if it was not updated recently", async () => {
+    it("should delete the entry if it was not updated recently/permission deadline has expired", async () => {
       const mockBlockEvent = { block: { timestamp: timePeriod } };
       getApprovals()[spender] = [{ timestamp: 1000 }];
       getERC20Approvals()[spender] = [{ timestamp: 1000 }];
