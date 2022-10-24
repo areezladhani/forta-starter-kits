@@ -306,7 +306,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
 
       spenderPermissions?.forEach((permission) => {
         if (permission.asset === asset && permission.owner === from) {
-          if (!permission.value || permission.value === value) {
+          if (!permission.value || permission.value.toString() === value.toString()) {
             findings.push(createPermitTransferAlert(txFrom, from, to, asset, value));
           }
         }
@@ -330,17 +330,18 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         }
         findings.push(createTransferScamAlert(txFrom, from, to, asset, _scamAddresses, scamDomains));
       }
+      if (spenderApprovals) {
+        // Check if we have caught the approval
+        // For ERC20: Check if there is an approval from the owner that isn't from the current tx
+        // For ERC721: Check if the tokenId is approved or if there is an ApprovalForAll
+        const hasMonitoredApproval = tokenId
+          ? spenderApprovals
+              .filter((a) => a.owner === from)
+              .some((a) => a.isApprovalForAll || a.tokenId.eq(tokenId) || tokenIds?.includes(a.tokenId))
+          : spenderApprovals.find((a) => a.owner === from && a.asset === asset)?.timestamp < timestamp;
 
-      // Check if we have caught the approval
-      // For ERC20: Check if there is an approval from the owner that isn't from the current tx
-      // For ERC721: Check if the tokenId is approved or if there is an ApprovalForAll
-      const hasMonitoredApproval = tokenId
-        ? spenderApprovals
-            .filter((a) => a.owner === from)
-            .some((a) => a.isApprovalForAll || a.tokenId.eq(tokenId) || tokenIds?.includes(a.tokenId))
-        : spenderApprovals.find((a) => a.owner === from && a.asset === asset)?.timestamp < timestamp;
-
-      if (!hasMonitoredApproval) return;
+        if (!hasMonitoredApproval) return;
+      }
 
       // Initialize the transfers array for the spender if it doesn't exist
       if (!transfers[txFrom]) transfers[txFrom] = [];
@@ -490,6 +491,7 @@ module.exports = {
   getApprovals: () => approvals, // Exported for unit tests
   getERC20Approvals: () => approvalsERC20, // Exported for unit tests
   getERC721Approvals: () => approvalsERC721, // Exported for unit tests
+  getPermissions: () => permissions, // Exported for unit tests
   getTransfers: () => transfers, // Exported for unit tests
   getCachedAddresses: () => cachedAddresses, // Exported for unit tests
   getScamAddresses: () => scamAddresses, // Exported for unit tests
