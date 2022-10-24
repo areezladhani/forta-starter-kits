@@ -1069,7 +1069,7 @@ describe("ice-phishing bot", () => {
       ]);
     });
 
-    it.only("should return findings if there's a transfer following a DAI-like permit function call", async () => {
+    it("should return findings if there's a transfer following a DAI-like permit function call", async () => {
       const tempTxEvent = {
         filterFunction: jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([mockDAILikePermitFunctionCall]),
         filterLog: jest
@@ -1115,6 +1115,127 @@ describe("ice-phishing bot", () => {
             spender: spender,
           },
           addresses: asset,
+        }),
+      ]);
+    });
+
+    it("should return findings if a scam address has been given permission", async () => {
+      const mockBlockEvent = { block: { timestamp: 1000 } };
+      const axiosResponse = { data: [createAddress("0x5050")] };
+      axios.get.mockResolvedValueOnce(axiosResponse);
+      await handleBlock(mockBlockEvent);
+
+      const mockPermitFunctionCall = {
+        address: asset,
+        args: {
+          owner: owner1,
+          spender: createAddress("0x5050"),
+          deadline: 9359543534435,
+          value: ethers.BigNumber.from(210),
+        },
+      };
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([mockPermitFunctionCall]).mockReturnValueOnce([]);
+      mockTxEvent.filterLog.mockReturnValue([]);
+      mockProvider.getCode.mockReturnValue("0x");
+
+      const axiosResponse2 = { data: { "www.scamDomain.com": [createAddress("0x5050")] } };
+      axios.get.mockResolvedValueOnce(axiosResponse2);
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Known scam address was involved in an ERC-20 permission",
+          description: `${spender} gave permission to ${createAddress("0x5050")} for ${owner1}'s ERC-20 tokens`,
+          alertId: "ICE-PHISHING-ERC20-SCAM-PERMIT",
+          severity: FindingSeverity.High,
+          type: FindingType.Suspicious,
+          metadata: {
+            scamAddresses: [createAddress("0x5050")],
+            scamDomains: ["www.scamDomain.com"],
+            msgSender: spender,
+            spender: createAddress("0x5050"),
+            owner: owner1,
+          },
+          addresses: [asset],
+        }),
+      ]);
+    });
+
+    it("should return findings if a scam address has been given approval", async () => {
+      const mockBlockEvent = { block: { timestamp: 1000 } };
+      const axiosResponse = { data: [spender] };
+      axios.get.mockResolvedValueOnce(axiosResponse);
+      await handleBlock(mockBlockEvent);
+
+      mockTxEvent.filterLog
+        .mockReturnValueOnce([mockApprovalERC20Events[0]]) // ERC20 approvals
+        .mockReturnValueOnce([]) // ERC721 approvals
+        .mockReturnValueOnce([]) // ApprovalForAll
+        .mockReturnValueOnce([]) // ERC20 transfers
+        .mockReturnValueOnce([]) // ERC721 transfers
+        .mockReturnValueOnce([]); // ERC1155 transfers
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+      mockProvider.getCode.mockReturnValue("0x");
+
+      const axiosResponse2 = { data: { "www.scamDomain.com": [spender] } };
+      axios.get.mockResolvedValueOnce(axiosResponse2);
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Known scam address got approval to spend assets",
+          description: `Scam address ${spender} got approval for ${owner1}'s assets`,
+          alertId: "ICE-PHISHING-SCAM-APPROVAL",
+          severity: FindingSeverity.High,
+          type: FindingType.Suspicious,
+          metadata: {
+            scamDomains: ["www.scamDomain.com"],
+            scamSpender: spender,
+            owner: owner1,
+          },
+          addresses: [asset],
+        }),
+      ]);
+    });
+
+    it.only("should return findings if a scam address is involved in a transfer", async () => {
+      const mockBlockEvent = { block: { timestamp: 1000 } };
+      const axiosResponse = { data: [spender] };
+      axios.get.mockResolvedValueOnce(axiosResponse);
+      await handleBlock(mockBlockEvent);
+
+      mockTxEvent.filterLog
+        .mockReturnValueOnce([]) // ERC20 approvals
+        .mockReturnValueOnce([]) // ERC721 approvals
+        .mockReturnValueOnce([]) // ApprovalForAll
+        .mockReturnValueOnce([mockTransferEvents[0]]) // ERC20 transfers
+        .mockReturnValueOnce([]) // ERC721 transfers
+        .mockReturnValueOnce([]); // ERC1155 transfers
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+      mockProvider.getCode.mockReturnValue("0x");
+
+      const axiosResponse2 = { data: { "www.scamDomain.com": [spender] } };
+      axios.get.mockResolvedValueOnce(axiosResponse2);
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Known scam address was involved in an asset transfer",
+          description: `${spender} transferred assets from ${owner1} to ${mockTransferEvents[0].args.to}`,
+          alertId: "ICE-PHISHING-SCAM-TRANSFER",
+          severity: FindingSeverity.Critical,
+          type: FindingType.Exploit,
+          metadata: {
+            scamAddresses: [spender],
+            scamDomains: ["www.scamDomain.com"],
+            msgSender: spender,
+            owner: owner1,
+            receiver: mockTransferEvents[0].args.to,
+          },
+          addresses: [asset],
         }),
       ]);
     });
