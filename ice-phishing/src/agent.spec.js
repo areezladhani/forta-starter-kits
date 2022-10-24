@@ -7,6 +7,7 @@ const {
   getApprovals,
   getERC20Approvals,
   getERC721Approvals,
+  getPermissions,
   getTransfers,
   getCachedAddresses,
   getScamAddresses,
@@ -102,7 +103,15 @@ const mockPermitFunctionCall = {
     owner: owner1,
     spender,
     deadline: 9359543534435,
-    value: ethers.BigNumber.from(435345634435),
+    value: ethers.BigNumber.from(210),
+  },
+};
+
+const mockDAILikePermitFunctionCall = {
+  address: asset,
+  args: {
+    owner: owner1,
+    spender,
   },
 };
 
@@ -172,6 +181,7 @@ const mockTransferEvents = [
     name: "Transfer",
     args: {
       from: owner1,
+      to: createAddress("0x11"),
       value: ethers.BigNumber.from(210),
     },
   },
@@ -374,6 +384,7 @@ describe("ice-phishing bot", () => {
       Object.keys(getApprovals()).forEach((s) => delete getApprovals()[s]);
       Object.keys(getERC721Approvals()).forEach((s) => delete getERC721Approvals()[s]);
       Object.keys(getERC20Approvals()).forEach((s) => delete getERC20Approvals()[s]);
+      Object.keys(getPermissions()).forEach((s) => delete getPermissions()[s]);
       Object.keys(getTransfers()).forEach((s) => delete getTransfers()[s]);
       Object.keys(getScamAddresses()).forEach((s) => delete getScamAddresses()[s]);
       getCachedAddresses().clear();
@@ -398,8 +409,33 @@ describe("ice-phishing bot", () => {
       expect(mockGetCode).toHaveBeenCalledTimes(0);
     });
 
-    it("should return findings if there is a permit function call", async () => {
+    it("should return findings if there is a EIP-2612's permit function call", async () => {
       mockTxEvent.filterFunction.mockReturnValueOnce([mockPermitFunctionCall]).mockReturnValueOnce([]);
+      mockTxEvent.filterLog.mockReturnValue([]);
+      mockProvider.getCode.mockReturnValue("0x");
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Account got permission for ERC-20 tokens",
+          description: `${spender} gave permission to ${spender} for ${owner1}'s ERC-20 tokens`,
+          alertId: "ICE-PHISHING-ERC20-PERMIT",
+          severity: FindingSeverity.Low,
+          type: FindingType.Suspicious,
+          metadata: {
+            msgSender: spender,
+            owner: owner1,
+            spender,
+          },
+          addresses: [asset],
+        }),
+      ]);
+      expect(mockTxEvent.filterLog).toHaveBeenCalledTimes(6);
+      expect(mockTxEvent.filterFunction).toHaveBeenCalledTimes(2);
+    });
+
+    it("should return findings if there is a DAI-like permit function call", async () => {
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([mockDAILikePermitFunctionCall]);
       mockTxEvent.filterLog.mockReturnValue([]);
       mockProvider.getCode.mockReturnValue("0x");
       const findings = await handleTransaction(mockTxEvent);
@@ -692,7 +728,6 @@ describe("ice-phishing bot", () => {
 
       mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
       mockBalanceOf.mockResolvedValueOnce(ethers.BigNumber.from(0));
-      expect(mockProvider.getCode).toHaveBeenCalledTimes(5);
 
       const findings = await handleTransaction(mockTxEvent);
 
@@ -984,9 +1019,105 @@ describe("ice-phishing bot", () => {
       ]);
     });
 
-    // it("should return findings if there's a transfer following a permit function call", async () => {
+    it("should return findings if there's a transfer following an EIP-2612's permit function call", async () => {
+      const tempTxEvent = {
+        filterFunction: jest.fn().mockReturnValueOnce([mockPermitFunctionCall]).mockReturnValueOnce([]),
+        filterLog: jest
+          .fn()
+          .mockReturnValueOnce([]) // ERC20 approvals
+          .mockReturnValueOnce([]) // ERC721 approvals
+          .mockReturnValueOnce([]) // ApprovalForAll
+          .mockReturnValueOnce([]) // ERC20 transfers
+          .mockReturnValueOnce([]) // ERC721 transfers
+          .mockReturnValueOnce([]), // ERC1155 transfers
+        hash: "hash33",
+        timestamp: 1001,
+        from: spender,
+      };
+      mockProvider.getCode.mockReturnValue("0x");
 
-    // });
+      await handleTransaction(tempTxEvent);
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+      mockTxEvent.filterLog
+        .mockReturnValueOnce([]) // ERC20 approvals
+        .mockReturnValueOnce([]) // ERC721 approvals
+        .mockReturnValueOnce([]) // ApprovalForAll
+        .mockReturnValueOnce([mockTransferEvents[0]]) // ERC20 transfers
+        .mockReturnValueOnce([]) // ERC721 transfers
+        .mockReturnValueOnce([]); // ERC1155 transfers
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+      mockBalanceOf.mockResolvedValueOnce(ethers.BigNumber.from(0));
+
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Previously permitted assets transferred",
+          description: `${spender} transferred ${mockTransferEvents[0].args.value} tokens from ${owner1} to ${mockTransferEvents[0].args.to}`,
+          alertId: "ICE-PHISHING-PERMITTED-ERC20-TRANSFER",
+          severity: FindingSeverity.Critical,
+          type: FindingType.Exploit,
+          metadata: {
+            owner: owner1,
+            receiver: mockTransferEvents[0].args.to,
+            spender: spender,
+          },
+          addresses: asset,
+        }),
+      ]);
+    });
+
+    it.only("should return findings if there's a transfer following a DAI-like permit function call", async () => {
+      const tempTxEvent = {
+        filterFunction: jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([mockDAILikePermitFunctionCall]),
+        filterLog: jest
+          .fn()
+          .mockReturnValueOnce([]) // ERC20 approvals
+          .mockReturnValueOnce([]) // ERC721 approvals
+          .mockReturnValueOnce([]) // ApprovalForAll
+          .mockReturnValueOnce([]) // ERC20 transfers
+          .mockReturnValueOnce([]) // ERC721 transfers
+          .mockReturnValueOnce([]), // ERC1155 transfers
+        hash: "hash33",
+        timestamp: 1001,
+        from: spender,
+      };
+      mockProvider.getCode.mockReturnValue("0x");
+
+      await handleTransaction(tempTxEvent);
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+      mockTxEvent.filterLog
+        .mockReturnValueOnce([]) // ERC20 approvals
+        .mockReturnValueOnce([]) // ERC721 approvals
+        .mockReturnValueOnce([]) // ApprovalForAll
+        .mockReturnValueOnce([mockTransferEvents[0]]) // ERC20 transfers
+        .mockReturnValueOnce([]) // ERC721 transfers
+        .mockReturnValueOnce([]); // ERC1155 transfers
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+      mockBalanceOf.mockResolvedValueOnce(ethers.BigNumber.from(0));
+
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Previously permitted assets transferred",
+          description: `${spender} transferred ${mockTransferEvents[0].args.value} tokens from ${owner1} to ${mockTransferEvents[0].args.to}`,
+          alertId: "ICE-PHISHING-PERMITTED-ERC20-TRANSFER",
+          severity: FindingSeverity.Critical,
+          type: FindingType.Exploit,
+          metadata: {
+            owner: owner1,
+            receiver: mockTransferEvents[0].args.to,
+            spender: spender,
+          },
+          addresses: asset,
+        }),
+      ]);
+    });
   });
 
   describe("handleBlock", () => {
