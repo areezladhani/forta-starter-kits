@@ -1,4 +1,4 @@
-const { Finding, FindingSeverity, FindingType, getEthersProvider, ethers } = require("forta-agent");
+const { Finding, FindingSeverity, FindingType, ethers } = require("forta-agent");
 const { default: axios } = require("axios");
 const LRU = require("lru-cache");
 const { nonceThreshold, contractTxsThreshold, etherscanApis } = require("../bot-config.json");
@@ -77,7 +77,7 @@ function createApprovalForAllAlertERC1155(spender, owner, asset) {
   return Finding.fromObject({
     name: "Account got approval for all ERC-1155 tokens",
     description: `${spender} obtained transfer approval for all ERC-1155 tokens from ${owner}`,
-    alertId: "ICE-PHISHING-ERC-1155-APPROVAL-FOR-ALL",
+    alertId: "ICE-PHISHING-ERC1155-APPROVAL-FOR-ALL",
     severity: FindingSeverity.Low,
     type: FindingType.Suspicious,
     metadata: {
