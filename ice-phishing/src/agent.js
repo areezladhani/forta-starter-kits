@@ -84,7 +84,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
   await Promise.all(
     permitFunctions.map(async (func) => {
       const { address: asset } = func;
-      const { owner, spender, deadline, value } = func.args;
+      const { owner, spender, deadline, expiry, value } = func.args;
 
       const msgSenderType = await getAddressType(
         txFrom,
@@ -120,7 +120,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
           asset,
           owner,
           hash,
-          deadline,
+          deadline: deadline ? deadline : expiry,
           value: value ? value : 0,
         });
         if (spenderType !== AddressType.ScamAddress && msgSenderType !== AddressType.ScamAddress) {
@@ -238,10 +238,10 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         });
       }
 
-      // console.log("Detected possible malicious approval");
-      // console.log(`owner: ${owner}`);
-      // console.log(`spender: ${spender}`);
-      // console.log(`asset: ${asset}`);
+      console.log("Detected possible malicious approval");
+      console.log(`owner: ${owner}`);
+      console.log(`spender: ${spender}`);
+      console.log(`asset: ${asset}`);
 
       // Update the approvals for the spender
       approvals[spender].push({
@@ -331,7 +331,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       if (!spenderApprovals && !spenderPermissions) return;
 
       spenderPermissions?.forEach((permission) => {
-        if (permission.asset === asset && permission.owner === from) {
+        if (permission.asset === asset && permission.owner === from && permission.deadline > timestamp) {
           if (!permission.value || permission.value.toString() === value.toString()) {
             findings.push(createPermitTransferAlert(txFrom, from, to, asset, value));
           }
@@ -411,6 +411,10 @@ const handleBlock = async (blockEvent) => {
   if (timestamp - lastTimestamp > TIME_PERIOD) {
     console.log("Cleaning");
     console.log(`Approvals before: ${Object.keys(approvals).length}`);
+    console.log(`Approvals ERC20 before: ${Object.keys(approvalsERC20).length}`);
+    console.log(`Approvals ERC721 before: ${Object.keys(approvalsERC721).length}`);
+    console.log(`ApprovalsForAll ERC721 before: ${Object.keys(approvalsForAll721).length}`);
+    console.log(`ApprovalsForAll ERC1155 before: ${Object.keys(approvalsForAll1155).length}`);
     console.log(`Permissions before: ${Object.keys(permissions).length}`);
     console.log(`Transfers before: ${Object.keys(transfers).length}`);
 
@@ -454,13 +458,11 @@ const handleBlock = async (blockEvent) => {
       }
     });
 
-    Object.entries(permissions).forEach(([spender, data]) => {
-      Object.entries(data).forEach((d) => {
-        // Clear the permission if it has expired
-        if (timestamp > d.deadline) {
-          delete permissions[spender][d];
-        }
-      });
+    Object.keys(permissions).forEach((spender) => {
+      permissions[spender] = permissions[spender].filter((entry) => entry.deadline > timestamp);
+      if (!(permissions[spender].length > 0)) {
+        delete permissions[spender];
+      }
     });
 
     Object.entries(transfers).forEach(([spender, data]) => {
@@ -472,6 +474,10 @@ const handleBlock = async (blockEvent) => {
     });
 
     console.log(`Approvals after: ${Object.keys(approvals).length}`);
+    console.log(`Approvals ERC20 after: ${Object.keys(approvalsERC20).length}`);
+    console.log(`Approvals ERC721 after: ${Object.keys(approvalsERC721).length}`);
+    console.log(`ApprovalsForAll ERC721 after: ${Object.keys(approvalsForAll721).length}`);
+    console.log(`ApprovalsForAll ERC1155 after: ${Object.keys(approvalsForAll1155).length}`);
     console.log(`Permissions after: ${Object.keys(permissions).length}`);
     console.log(`Transfers after: ${Object.keys(transfers).length}`);
 
@@ -499,10 +505,11 @@ module.exports = {
   getApprovals: () => approvals, // Exported for unit tests
   getERC20Approvals: () => approvalsERC20, // Exported for unit tests
   getERC721Approvals: () => approvalsERC721, // Exported for unit tests
+  getERC721ApprovalsForAll: () => approvalsForAll721, // Exported for unit tests
+  getERC1155ApprovalsForAll: () => approvalsForAll1155,
   getPermissions: () => permissions, // Exported for unit tests
   getTransfers: () => transfers, // Exported for unit tests
   getCachedAddresses: () => cachedAddresses, // Exported for unit tests
-  getScamAddresses: () => scamAddresses, // Exported for unit tests
   resetLastTimestamp: () => {
     lastTimestamp = 0;
   },
