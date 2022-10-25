@@ -38,7 +38,7 @@
       "urlContract": "https://api.arbiscan.io/api?module=contract&action=getabi",
       "urlAccount": "https://api.arbiscan.io/api?module=account&action=txlist"
     },
-    "43114:": {
+    "43114": {
       "key": "YourApiKeyToken",
       "urlContract": "https://api.snowtrace.io/api?module=contract&action=getabi",
       "urlAccount": "https://api.snowtrace.io/api?module=account&action=txlist"
