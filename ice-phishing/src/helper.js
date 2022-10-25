@@ -207,7 +207,7 @@ async function getContractType(address, chainId) {
   let result;
   result = await axios.get(getEtherscanContractUrl(address, chainId));
   if (result.data.message.startsWith("NOTOK") && result.data.result !== "Contract source code not verified") {
-    console.log(`rate limit reached; skipping check for ${address}`);
+    console.log(`block explorer error occured; skipping check for ${address}`);
     return null;
   }
 
@@ -219,7 +219,7 @@ async function getContractType(address, chainId) {
 
   result = await axios.get(getEtherscanAddressUrl(address, chainId));
   if (result.data.message.startsWith("NOTOK")) {
-    console.log(`rate limit reached; skipping check for ${address}`);
+    console.log(`block explorer error occured; skipping check for ${address}`);
     return null;
   }
   const hasHighNumberOfTotalTxs = result.data.result.length > contractTxsThreshold;
