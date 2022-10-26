@@ -2,7 +2,7 @@
 
 ## Description
 
-This bot detects flashbot transactions
+This bot detects flashbots transactions
 
 ## Supported Chains
 
@@ -11,7 +11,7 @@ This bot detects flashbot transactions
 ## Alerts
 
 - FLASHBOTS-TRANSACTIONS
-  - Fired when the Flashbots API flags a transaction as a flashbot tx
+  - Fired when the Flashbots API flags a transaction as a flashbots transaction
   - Severity is always set to "low"
   - Type is always set to "info"
   - Metadata:

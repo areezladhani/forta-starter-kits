@@ -16,7 +16,7 @@ function provideHandleBlock(getTransactionReceipt) {
 
     const { blocks } = result.data;
 
-    // Get findings for every new flashbot block and combine them
+    // Get findings for every new flashbots block and combine them
     let findings = await Promise.all(
       blocks.map(async (block) => {
         const { transactions, block_number: blockNumber } = block;
@@ -24,7 +24,7 @@ function provideHandleBlock(getTransactionReceipt) {
 
         // Only process blocks that aren't processed
         if (blockNumber > lastBlockNumber) {
-          // Create finding for every flashbot transaction in the block
+          // Create finding for every flashbots transaction in the block
           currentBlockFindings = await Promise.all(
             transactions
               .filter((transaction) => transaction.bundle_type !== "mempool")
@@ -38,7 +38,7 @@ function provideHandleBlock(getTransactionReceipt) {
 
                 return Finding.fromObject({
                   name: "Flashbots transactions",
-                  description: `${from} interacted with ${to} in a flashbot transaction`,
+                  description: `${from} interacted with ${to} in a flashbots transaction`,
                   alertId: "FLASHBOTS-TRANSACTIONS",
                   severity: FindingSeverity.Low,
                   type: FindingType.Info,

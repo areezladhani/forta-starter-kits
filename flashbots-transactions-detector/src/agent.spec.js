@@ -47,7 +47,7 @@ describe("flashbots transactions detection bot", () => {
     resetLastBlockNumber();
   });
 
-  it("should return empty findings if there are no new flashbot blocks", async () => {
+  it("should return empty findings if there are no new flashbots blocks", async () => {
     // Flashbots API always returns the last X blocks
     // We process block1 and check if we will process it again
     const response = { data: { blocks: [block1] } };
@@ -79,7 +79,7 @@ describe("flashbots transactions detection bot", () => {
     expect(findings).toStrictEqual([
       Finding.fromObject({
         name: "Flashbots transactions",
-        description: `${from1} interacted with ${to1} in a flashbot transaction`,
+        description: `${from1} interacted with ${to1} in a flashbots transaction`,
         alertId: "FLASHBOTS-TRANSACTIONS",
         severity: FindingSeverity.Low,
         type: FindingType.Info,
@@ -94,7 +94,7 @@ describe("flashbots transactions detection bot", () => {
     expect(mockGetTransactionReceipt).toHaveBeenCalledTimes(1);
   });
 
-  it("should return findings if there are new flashbot blocks", async () => {
+  it("should return findings if there are new flashbots blocks", async () => {
     const response1 = { data: { blocks: [block1] } };
     const logs1 = [];
     mockGetTransactionReceipt.mockResolvedValueOnce({ logs: logs1 });
@@ -113,7 +113,7 @@ describe("flashbots transactions detection bot", () => {
     expect(findings).toStrictEqual([
       Finding.fromObject({
         name: "Flashbots transactions",
-        description: `${from2} interacted with ${to2} in a flashbot transaction`,
+        description: `${from2} interacted with ${to2} in a flashbots transaction`,
         alertId: "FLASHBOTS-TRANSACTIONS",
         severity: FindingSeverity.Low,
         type: FindingType.Info,
@@ -127,7 +127,7 @@ describe("flashbots transactions detection bot", () => {
       }),
       Finding.fromObject({
         name: "Flashbots transactions",
-        description: `${from3} interacted with ${to3} in a flashbot transaction`,
+        description: `${from3} interacted with ${to3} in a flashbots transaction`,
         alertId: "FLASHBOTS-TRANSACTIONS",
         severity: FindingSeverity.Low,
         type: FindingType.Info,
