@@ -56,7 +56,6 @@ function provideHandleBlock(getTransactionReceipt) {
           lastBlockNumber = blockNumber;
         }
 
-        console.log(currentBlockFindings);
         return currentBlockFindings;
       })
     );
