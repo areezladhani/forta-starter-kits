@@ -1,7 +1,8 @@
 {
-  "name": "flashbot-attack",
-  "version": "0.0.1",
-  "description": "This bot detects flashbot transactions",
+  "name": "flashbots-transactions-detector",
+  "version": "0.0.2",
+  "description": "This bot detects flashbots transactions",
+  "repository": "https://github.com/NethermindEth/forta-starter-kits/tree/main/flashbots-transactions-detector",
   "chainIds": [
     1
   ],
@@ -18,17 +19,17 @@
     "disable": "forta-agent disable",
     "enable": "forta-agent enable",
     "keyfile": "forta-agent keyfile",
-    "test": "jest"
+    "test": "jest",
+    "format": "prettier --write \"src/**/*.js\""
   },
   "dependencies": {
     "axios": "^0.27.2",
-    "forta-agent": "^0.1.6"
+    "forta-agent": "0.1.9"
   },
   "devDependencies": {
-    "eslint": "^8.16.0",
-    "eslint-config-airbnb-base": "^15.0.0",
-    "eslint-plugin-import": "^2.26.0",
     "jest": "^27.0.6",
-    "nodemon": "^2.0.8"
+    "nodemon": "^2.0.8",
+    "prettier": "^2.7.1",
+    "forta-agent-tools": "^3.1.2"
   }
 }
