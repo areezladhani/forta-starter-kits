@@ -27,7 +27,7 @@ function provideHandleBlock(getTransactionReceipt) {
           // Create finding for every flashbot transaction in the block
           currentBlockFindings = await Promise.all(
             transactions
-              .filter((tx) => tx.bundle_type !== "mempool")
+              .filter((transaction) => transaction.bundle_type !== "mempool")
               .map(async (transaction) => {
                 const { eoa_address: from, to_address: to, transaction_hash: hash } = transaction;
 
