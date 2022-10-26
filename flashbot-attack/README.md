@@ -18,7 +18,12 @@ This bot detects flashbot transactions
     - from - the address that initiated the tx
     - to - the address that was interacted with
     - hash - the transaction hash
+    - blockNumber - the block number of the tx
+  - Addresses contain the list of contracts that were impacted
 
 ## Test Data
 
-The bot behaviour can be verified with the provided unit tests
+In order to test the bot's behavior, replace `flashbotsUrl` variable in `agent.js` at L4, with one of the following urls and run `npm start`.
+
+- `https://blocks.flashbots.net/v1/blocks?block_number=15725067` (Temple DAO Exploit)
+- `https://blocks.flashbots.net/v1/blocks?block_number=15794364` (Olympus DAO Exploit)
