@@ -10,6 +10,8 @@ const asset = createAddress("0x01");
 const address1 = createAddress("0x02");
 const address2 = createAddress("0x03");
 const address3 = createAddress("0x04");
+const address4 = createAddress("0x05");
+const address5 = createAddress("0x06");
 
 const hashCode1 = hashCode(address1, asset);
 const hashCode2 = hashCode(address2, asset);
@@ -50,6 +52,7 @@ describe("Asset drained bot test suite", () => {
     const mockTxEvent = {
       filterLog: jest.fn(),
       hash: ethers.utils.formatBytes32String("0x352352"),
+      from: address4,
       traces: [],
     };
 
@@ -90,7 +93,9 @@ describe("Asset drained bot test suite", () => {
         address: address1,
         value: ethers.BigNumber.from(-10),
         txs: {
-          "0x0000000000000000000000000000000000000003": [ethers.utils.formatBytes32String("0x352352")],
+          "0x0000000000000000000000000000000000000003": [
+            { hash: ethers.utils.formatBytes32String("0x352352"), txFrom: address4 },
+          ],
         },
       });
       expect(getTransfersObj()[hashCode2]).toStrictEqual({
@@ -98,7 +103,9 @@ describe("Asset drained bot test suite", () => {
         address: address2,
         value: ethers.BigNumber.from(0),
         txs: {
-          "0x0000000000000000000000000000000000000004": [ethers.utils.formatBytes32String("0x352352")],
+          "0x0000000000000000000000000000000000000004": [
+            { hash: ethers.utils.formatBytes32String("0x352352"), txFrom: address4 },
+          ],
         },
       });
       expect(getTransfersObj()[hashCode3]).toStrictEqual({
@@ -114,11 +121,13 @@ describe("Asset drained bot test suite", () => {
     const mockTxEvent = {
       filterLog: jest.fn(),
       hash: ethers.utils.formatBytes32String("0x2352352"),
+      from: address4,
       traces: [],
     };
     const mockTxEvent2 = {
       filterLog: jest.fn(),
       hash: ethers.utils.formatBytes32String("0x442352352"),
+      from: address5,
       traces: [],
     };
     const mockBlockEvent = { blockNumber: 10_000 };
@@ -162,6 +171,7 @@ describe("Asset drained bot test suite", () => {
           metadata: {
             contract: address1,
             asset,
+            txFroms: [address4],
             txHashes: [ethers.utils.formatBytes32String("0x2352352")],
             blockNumber: 9999,
           },
@@ -207,6 +217,7 @@ describe("Asset drained bot test suite", () => {
           metadata: {
             contract: address1,
             asset,
+            txFroms: [address4, address5],
             txHashes: [ethers.utils.formatBytes32String("0x2352352"), ethers.utils.formatBytes32String("0x442352352")],
             blockNumber: 9999,
           },
