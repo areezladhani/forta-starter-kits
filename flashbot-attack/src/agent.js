@@ -1,10 +1,10 @@
-const { Finding, FindingSeverity, FindingType, getEthersProvider } = require("forta-agent");
+const { Finding, FindingSeverity, FindingType, getTransactionReceipt } = require("forta-agent");
 const { default: axios } = require("axios");
 
 const flashbotsUrl = "https://blocks.flashbots.net/v1/blocks?limit=10";
 let lastBlockNumber = 0;
 
-function provideHandleBlock() {
+function provideHandleBlock(getTransactionReceipt) {
   return async () => {
     let result;
     try {
@@ -30,7 +30,7 @@ function provideHandleBlock() {
               const { eoa_address: from, to_address: to, transaction_hash: hash } = transaction;
 
               // Use the tx logs to get the impacted contracts
-              const { logs } = await getEthersProvider().getTransactionReceipt(hash);
+              const { logs } = await getTransactionReceipt(hash);
               let addresses = logs.map((log) => log.address.toLowerCase());
               addresses = [...new Set(addresses)];
 
@@ -64,7 +64,7 @@ function provideHandleBlock() {
 
 module.exports = {
   provideHandleBlock,
-  handleBlock: provideHandleBlock(),
+  handleBlock: provideHandleBlock(getTransactionReceipt),
   resetLastBlockNumber: () => {
     lastBlockNumber = 0;
   }, // Exported for unit tests
