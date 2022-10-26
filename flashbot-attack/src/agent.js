@@ -26,28 +26,30 @@ function provideHandleBlock(getTransactionReceipt) {
         if (blockNumber > lastBlockNumber) {
           // Create finding for every flashbot transaction in the block
           currentBlockFindings = await Promise.all(
-            transactions.map(async (transaction) => {
-              const { eoa_address: from, to_address: to, transaction_hash: hash } = transaction;
+            transactions
+              .filter((tx) => tx.bundle_type !== "mempool")
+              .map(async (transaction) => {
+                const { eoa_address: from, to_address: to, transaction_hash: hash } = transaction;
 
-              // Use the tx logs to get the impacted contracts
-              const { logs } = await getTransactionReceipt(hash);
-              let addresses = logs.map((log) => log.address.toLowerCase());
-              addresses = [...new Set(addresses)];
+                // Use the tx logs to get the impacted contracts
+                const { logs } = await getTransactionReceipt(hash);
+                let addresses = logs.map((log) => log.address.toLowerCase());
+                addresses = [...new Set(addresses)];
 
-              return Finding.fromObject({
-                name: "Flashbot transaction",
-                description: `${from} interacted with ${to} in a flashbot transaction`,
-                alertId: "FLASHBOT-TRANSACTION",
-                severity: FindingSeverity.Low,
-                type: FindingType.Info,
-                addresses,
-                metadata: {
-                  from,
-                  to,
-                  hash,
-                },
-              });
-            })
+                return Finding.fromObject({
+                  name: "Flashbot transaction",
+                  description: `${from} interacted with ${to} in a flashbot transaction`,
+                  alertId: "FLASHBOT-TRANSACTION",
+                  severity: FindingSeverity.Low,
+                  type: FindingType.Info,
+                  addresses,
+                  metadata: {
+                    from,
+                    to,
+                    hash,
+                  },
+                });
+              })
           );
 
           lastBlockNumber = blockNumber;
