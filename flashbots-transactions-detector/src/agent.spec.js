@@ -1,4 +1,4 @@
-const { FindingType, FindingSeverity, Finding, getEthersProvider } = require("forta-agent");
+const { FindingType, FindingSeverity, Finding } = require("forta-agent");
 const axios = require("axios");
 const { provideHandleBlock, resetLastBlockNumber } = require("./agent");
 
@@ -38,20 +38,7 @@ const block2 = {
 
 jest.mock("axios");
 
-// Mock the balanceOf method
-jest.mock("forta-agent", () => {
-  const original = jest.requireActual("forta-agent");
-  return {
-    ...original,
-    getEthersProvider: jest.fn(),
-  };
-});
-
 const mockGetTransactionReceipt = jest.fn();
-
-getEthersProvider.mockImplementation(() => ({
-  getTransactionReceipt: mockGetTransactionReceipt,
-}));
 
 describe("flashbots transactions detection bot", () => {
   beforeEach(() => {
