@@ -47,6 +47,7 @@ function provideHandleBlock(getTransactionReceipt) {
                     from,
                     to,
                     hash,
+                    blockNumber,
                   },
                 });
               })
