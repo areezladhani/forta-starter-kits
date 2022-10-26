@@ -51,6 +51,7 @@ describe("Asset drained bot test suite", () => {
   describe("handleTransaction", () => {
     const mockTxEvent = {
       filterLog: jest.fn(),
+      blockNumber: 9999,
       hash: ethers.utils.formatBytes32String("0x352352"),
       from: address4,
       traces: [],
@@ -92,6 +93,7 @@ describe("Asset drained bot test suite", () => {
         asset,
         address: address1,
         value: ethers.BigNumber.from(-10),
+        blockNumber: 9999,
         txs: {
           "0x0000000000000000000000000000000000000003": [
             { hash: ethers.utils.formatBytes32String("0x352352"), txFrom: address4 },
@@ -102,6 +104,7 @@ describe("Asset drained bot test suite", () => {
         asset,
         address: address2,
         value: ethers.BigNumber.from(0),
+        blockNumber: 9999,
         txs: {
           "0x0000000000000000000000000000000000000004": [
             { hash: ethers.utils.formatBytes32String("0x352352"), txFrom: address4 },
@@ -112,6 +115,7 @@ describe("Asset drained bot test suite", () => {
         asset,
         address: address3,
         value: ethers.BigNumber.from(10),
+        blockNumber: 9999,
         txs: {},
       });
     });
@@ -120,12 +124,14 @@ describe("Asset drained bot test suite", () => {
   describe("handleBlock", () => {
     const mockTxEvent = {
       filterLog: jest.fn(),
+      blockNumber: 9999,
       hash: ethers.utils.formatBytes32String("0x2352352"),
       from: address4,
       traces: [],
     };
     const mockTxEvent2 = {
       filterLog: jest.fn(),
+      blockNumber: 9999,
       hash: ethers.utils.formatBytes32String("0x442352352"),
       from: address5,
       traces: [],

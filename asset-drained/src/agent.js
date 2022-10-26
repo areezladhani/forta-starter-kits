@@ -23,7 +23,7 @@ const initialize = async () => {
 };
 
 const handleTransaction = async (txEvent) => {
-  const { hash, from: txFrom } = txEvent;
+  const { hash, from: txFrom, blockNumber } = txEvent;
   txEvent
     .filterLog(ERC20_TRANSFER_EVENT)
     .filter((event) => !event.args.value.eq(ZERO))
@@ -39,6 +39,7 @@ const handleTransaction = async (txEvent) => {
           asset,
           address: from,
           value: ZERO,
+          blockNumber,
           txs: {},
         };
       }
@@ -47,6 +48,7 @@ const handleTransaction = async (txEvent) => {
           asset,
           address: to,
           value: ZERO,
+          blockNumber,
           txs: {},
         };
       }
@@ -74,6 +76,7 @@ const handleTransaction = async (txEvent) => {
           asset: "native",
           address: from,
           value: ZERO,
+          blockNumber,
           txs: {},
         };
       }
@@ -83,6 +86,7 @@ const handleTransaction = async (txEvent) => {
           asset: "native",
           address: to,
           value: ZERO,
+          blockNumber,
           txs: {},
         };
       }
@@ -200,7 +204,7 @@ const handleBlock = async (blockEvent) => {
                 .map((tx) => tx.hash)
             ),
           ],
-          blockNumber: blockNumber - 1,
+          blockNumber: t.blockNumber,
         },
         addresses: [...new Set(Object.keys(t.txs))],
       })
