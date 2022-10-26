@@ -25,5 +25,5 @@ This bot detects flashbots transactions
 
 In order to test the bot's behavior, replace `flashbotsUrl` variable in `agent.js` at L4, with one of the following urls and run `npm start`.
 
-- `https://blocks.flashbots.net/v1/blocks?block_number=15725067` (Temple DAO Exploit)
-- `https://blocks.flashbots.net/v1/blocks?block_number=15794364` (Olympus DAO Exploit)
+- `https://blocks.flashbots.net/v1/blocks?block_number=15725067` [Temple DAO Exploit](https://etherscan.io/tx/0x8c3f442fc6d640a6ff3ea0b12be64f1d4609ea94edd2966f42c01cd9bdcf04b5)
+- `https://blocks.flashbots.net/v1/blocks?block_number=15794364` [Olympus DAO Exploit](https://etherscan.io/tx/0x3ed75df83d907412af874b7998d911fdf990704da87c2b1a8cf95ca5d21504cf)
