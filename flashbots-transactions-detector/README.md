@@ -1,4 +1,4 @@
-# Flashbot Attack Bot
+# Flashbots Transactions Detection Bot
 
 ## Description
 
@@ -10,7 +10,7 @@ This bot detects flashbot transactions
 
 ## Alerts
 
-- FLASHBOT-TRANSACTION
+- FLASHBOTS-TRANSACTIONS
   - Fired when the Flashbots API flags a transaction as a flashbot tx
   - Severity is always set to "low"
   - Type is always set to "info"

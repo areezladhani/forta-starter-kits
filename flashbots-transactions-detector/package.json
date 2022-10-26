@@ -1,5 +1,5 @@
 {
-  "name": "flashbot-attack",
+  "name": "flashbots-transactions-detector",
   "version": "0.0.2",
   "description": "This bot detects flashbot transactions",
   "chainIds": [

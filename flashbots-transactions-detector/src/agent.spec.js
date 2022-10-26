@@ -53,7 +53,7 @@ getEthersProvider.mockImplementation(() => ({
   getTransactionReceipt: mockGetTransactionReceipt,
 }));
 
-describe("flashbot attack bot", () => {
+describe("flashbots transactions detection bot", () => {
   beforeEach(() => {
     handleBlock = provideHandleBlock(mockGetTransactionReceipt);
     mockGetTransactionReceipt.mockReset();
@@ -91,9 +91,9 @@ describe("flashbot attack bot", () => {
 
     expect(findings).toStrictEqual([
       Finding.fromObject({
-        name: "Flashbot transaction",
+        name: "Flashbots transactions",
         description: `${from1} interacted with ${to1} in a flashbot transaction`,
-        alertId: "FLASHBOT-TRANSACTION",
+        alertId: "FLASHBOTS-TRANSACTIONS",
         severity: FindingSeverity.Low,
         type: FindingType.Info,
         metadata: {
@@ -125,9 +125,9 @@ describe("flashbot attack bot", () => {
 
     expect(findings).toStrictEqual([
       Finding.fromObject({
-        name: "Flashbot transaction",
+        name: "Flashbots transactions",
         description: `${from2} interacted with ${to2} in a flashbot transaction`,
-        alertId: "FLASHBOT-TRANSACTION",
+        alertId: "FLASHBOTS-TRANSACTIONS",
         severity: FindingSeverity.Low,
         type: FindingType.Info,
         addresses: [to2],
@@ -139,9 +139,9 @@ describe("flashbot attack bot", () => {
         },
       }),
       Finding.fromObject({
-        name: "Flashbot transaction",
+        name: "Flashbots transactions",
         description: `${from3} interacted with ${to3} in a flashbot transaction`,
-        alertId: "FLASHBOT-TRANSACTION",
+        alertId: "FLASHBOTS-TRANSACTIONS",
         severity: FindingSeverity.Low,
         type: FindingType.Info,
         addresses: [to3],

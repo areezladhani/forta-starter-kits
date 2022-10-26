@@ -37,9 +37,9 @@ function provideHandleBlock(getTransactionReceipt) {
                 addresses = [...new Set(addresses)];
 
                 return Finding.fromObject({
-                  name: "Flashbot transaction",
+                  name: "Flashbots transactions",
                   description: `${from} interacted with ${to} in a flashbot transaction`,
-                  alertId: "FLASHBOT-TRANSACTION",
+                  alertId: "FLASHBOTS-TRANSACTIONS",
                   severity: FindingSeverity.Low,
                   type: FindingType.Info,
                   addresses,
