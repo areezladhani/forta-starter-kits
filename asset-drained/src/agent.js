@@ -190,7 +190,7 @@ const handleBlock = async (blockEvent) => {
         metadata: {
           contract: t.address,
           asset: t.asset,
-          txFroms: [
+          initiators: [
             ...new Set(
               Object.values(t.txs)
                 .flat()

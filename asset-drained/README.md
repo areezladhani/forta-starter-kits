@@ -23,7 +23,7 @@ This bot detects if an asset is fully drained from a contract within a block. It
   - Metadata:
     - contract - the contract's address
     - asset - the asset's address
-    - txFroms - the EOA(s) that initiated the transaction(s)
+    - initiators - the EOA(s) that initiated the transaction(s)
     - txHashes - the hash(es) of the transaction(s) in which the contract was drained
     - blockNumber - the block number at the time of the contract drain
   - Addresses contain the list of addresses that received the assets from the drained contract

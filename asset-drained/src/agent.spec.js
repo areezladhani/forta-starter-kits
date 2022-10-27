@@ -177,7 +177,7 @@ describe("Asset drained bot test suite", () => {
           metadata: {
             contract: address1,
             asset,
-            txFroms: [address4],
+            initiators: [address4],
             txHashes: [ethers.utils.formatBytes32String("0x2352352")],
             blockNumber: 9999,
           },
@@ -223,7 +223,7 @@ describe("Asset drained bot test suite", () => {
           metadata: {
             contract: address1,
             asset,
-            txFroms: [address4, address5],
+            initiators: [address4, address5],
             txHashes: [ethers.utils.formatBytes32String("0x2352352"), ethers.utils.formatBytes32String("0x442352352")],
             blockNumber: 9999,
           },
