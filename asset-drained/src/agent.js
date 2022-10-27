@@ -23,7 +23,7 @@ const initialize = async () => {
 };
 
 const handleTransaction = async (txEvent) => {
-  const { hash } = txEvent;
+  const { hash, from: txFrom, blockNumber } = txEvent;
   txEvent
     .filterLog(ERC20_TRANSFER_EVENT)
     .filter((event) => !event.args.value.eq(ZERO))
@@ -39,6 +39,7 @@ const handleTransaction = async (txEvent) => {
           asset,
           address: from,
           value: ZERO,
+          blockNumber,
           txs: {},
         };
       }
@@ -47,6 +48,7 @@ const handleTransaction = async (txEvent) => {
           asset,
           address: to,
           value: ZERO,
+          blockNumber,
           txs: {},
         };
       }
@@ -54,9 +56,9 @@ const handleTransaction = async (txEvent) => {
       transfersObj[hashFrom].value = transfersObj[hashFrom].value.sub(value);
 
       if (!transfersObj[hashFrom].txs[to]) {
-        transfersObj[hashFrom].txs[to] = [hash];
+        transfersObj[hashFrom].txs[to] = [{ hash, txFrom }];
       } else {
-        transfersObj[hashFrom].txs[to].push(hash);
+        transfersObj[hashFrom].txs[to].push({ hash, txFrom });
       }
 
       transfersObj[hashTo].value = transfersObj[hashTo].value.add(value);
@@ -74,6 +76,7 @@ const handleTransaction = async (txEvent) => {
           asset: "native",
           address: from,
           value: ZERO,
+          blockNumber,
           txs: {},
         };
       }
@@ -83,6 +86,7 @@ const handleTransaction = async (txEvent) => {
           asset: "native",
           address: to,
           value: ZERO,
+          blockNumber,
           txs: {},
         };
       }
@@ -90,9 +94,9 @@ const handleTransaction = async (txEvent) => {
       transfersObj[hashFrom].value = transfersObj[hashFrom].value.sub(value);
 
       if (!transfersObj[hashFrom].txs[to]) {
-        transfersObj[hashFrom].txs[to] = [hash];
+        transfersObj[hashFrom].txs[to] = [{ hash, txFrom }];
       } else {
-        transfersObj[hashFrom].txs[to].push(hash);
+        transfersObj[hashFrom].txs[to].push({ hash, txFrom });
       }
 
       transfersObj[hashTo].value = transfersObj[hashTo].value.add(value);
@@ -186,8 +190,21 @@ const handleBlock = async (blockEvent) => {
         metadata: {
           contract: t.address,
           asset: t.asset,
-          txHashes: [...new Set(Object.values(t.txs).flat())],
-          blockNumber: blockNumber - 1,
+          initiators: [
+            ...new Set(
+              Object.values(t.txs)
+                .flat()
+                .map((tx) => tx.txFrom)
+            ),
+          ],
+          txHashes: [
+            ...new Set(
+              Object.values(t.txs)
+                .flat()
+                .map((tx) => tx.hash)
+            ),
+          ],
+          blockNumber: t.blockNumber,
         },
         addresses: [...new Set(Object.keys(t.txs))],
       })
