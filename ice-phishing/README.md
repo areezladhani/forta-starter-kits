@@ -2,7 +2,7 @@
 
 ## Description
 
-This bot detects if an account (EOA with low nonce or unverified account with low number of transactions) gains a high number of approvals or an ERC20 permission and if it transfers the approved funds. It also checks if an account from the [ScamSniffer DB](https://github.com/scamsniffer/scam-database) is involved in an `Approval`/`Transfer`/`permit`.
+This bot detects if an account (EOA with low nonce or unverified contract with low number of transactions) gains a high number of approvals or an ERC20 permission and if it transfers the approved funds. It also does the same checks for EOAs with high nonce or verified contracts with low number of transactions and emits an alert of lower severity. Lastly, it checks if an account from the [ScamSniffer DB](https://github.com/scamsniffer/scam-database) is involved in an `Approval`/`Transfer`/`permit`.
 
 > The `permit` function signatures detected by the bot are the EIP-2612's and MakerDAO DAI's.
 
@@ -58,11 +58,62 @@ This bot detects if an account (EOA with low nonce or unverified account with lo
     - `owner` - the owner of the assets
   - Addresses contain the approved asset address
 
-- ICE-PHISHING-ERC20-PERMIT
+  - ICE-PHISHING-HIGH-NUM-ERC20-APPROVALS-INFO
 
-  - Fired when an account gives permission to another account for a victim's ERC-20s
+  - Fired when an account (verified contract with low number of transactions or EOA with high nonce) gains high number of ERC-20 approvals
+  - Severity is always set to "info"
+  - Type is always set to "info"
+  - Metadata:
+    - `firstTxHash` - hash of the first approval tx
+    - `lastTxHash` - hash of the last approval tx
+  - Addresses contain an array of the impacted assets
+
+- ICE-PHISHING-HIGH-NUM-ERC721-APPROVALS-INFO
+
+  - Fired when an account (verified contract with low number of transactions or EOA with high nonce) gains high number of ERC-721 approvals
+  - Severity is always set to "info"
+  - Type is always set to "info"
+  - Metadata:
+    - `firstTxHash` - hash of the first approval tx
+    - `lastTxHash` - hash of the last approval tx
+  - Addresses contain an array of the impacted assets
+
+- ICE-PHISHING-ERC721-APPROVAL-FOR-ALL-INFO
+
+  - Fired when an account (verified contract with low number of transactions or EOA with high nonce) gains approval for all ERC-721s
+  - Severity is always set to "info"
+  - Type is always set to "info"
+  - Metadata:
+    - `spender` - the account that received the approval
+    - `owner` - the owner of the assets
+  - Addresses contain the approved asset address
+
+- ICE-PHISHING-ERC1155-APPROVAL-FOR-ALL-INFO
+
+  - Fired when an account (verified contract with low number of transactions or EOA with high nonce) gains approval for all ERC-1155s
   - Severity is always set to "low"
   - Type is always set to "suspicious"
+  - Metadata:
+    - `spender` - the account that received the approval
+    - `owner` - the owner of the assets
+  - Addresses contain the approved asset address
+
+- ICE-PHISHING-ERC20-PERMIT
+
+  - Fired when an account (unverified contract with low number of transactions or EOA with low nonce) gives permission to another account for a victim's ERC-20s
+  - Severity is always set to "low"
+  - Type is always set to "suspicious"
+  - Metadata:
+    - `msgSender` - the account that called the asset's `permit` function
+    - `spender` - the account that received the approval
+    - `owner` - the owner of the assets
+  - Addresses contain the permitted asset address
+
+  - ICE-PHISHING-ERC20-PERMIT-INFO
+
+  - Fired when an account (verified contract with low number of transactions or EOA with high nonce) gives permission to another account for a victim's ERC-20s
+  - Severity is always set to "info"
+  - Type is always set to "info"
   - Metadata:
     - `msgSender` - the account that called the asset's `permit` function
     - `spender` - the account that received the approval
@@ -116,11 +167,21 @@ This bot detects if an account (EOA with low nonce or unverified account with lo
     - `lastTxHash` - hash of the last transfer tx
   - Addresses contain an array of the impacted assets
 
-- ICE-PHISHING-PERMITTED-ERC20-TRANSFER
+- ICE-PHISHING-HIGH-NUM-APPROVED-TRANSFERS-LOW
 
-  - Fired when an account transfers tokens for which it was previously granted permission.
-  - Severity is always set to "critical"
-  - Type is always set to "exploit"
+  - Fired when an account (verified contract with low number of transactions or EOA with high nonce) that gained high number of approvals starts transfering the approved assets
+  - Severity is always set to "low"
+  - Type is always set to "suspicious"
+  - Metadata:
+    - `firstTxHash` - hash of the first transfer tx
+    - `lastTxHash` - hash of the last transfer tx
+  - Addresses contain an array of the impacted assets
+
+- ICE-PHISHING-PERMITTED-ERC20-TRANSFER-MEDIUM
+
+  - Fired when an account (verified contract with low number of transactions or EOA with high nonce) transfers tokens for which it was previously granted permission.
+  - Severity is always set to "medium"
+  - Type is always set to "suspicious"
   - Metadata:
     - `spender` - the account that transferred the tokens
     - `owner` - the owner of the assets

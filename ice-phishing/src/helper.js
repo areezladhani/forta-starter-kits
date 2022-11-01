@@ -1,7 +1,12 @@
 const { Finding, FindingSeverity, FindingType, ethers } = require("forta-agent");
 const { default: axios } = require("axios");
 const LRU = require("lru-cache");
-const { nonceThreshold, contractTxsThreshold, etherscanApis } = require("../bot-config.json");
+const {
+  nonceThreshold,
+  contractTxsThreshold,
+  verifiedContractTxsThreshold,
+  etherscanApis,
+} = require("../bot-config.json");
 const { ERC_20_721_INTERFACE, ERC_1155_INTERFACE } = require("./utils");
 const AddressType = require("./address-type");
 
@@ -42,6 +47,22 @@ function createHighNumApprovalsAlertERC20(spender, approvalsArray) {
   });
 }
 
+function createHighNumApprovalsInfoAlertERC20(spender, approvalsArray) {
+  const { firstTxHash, lastTxHash, assets, accounts, days } = getEventInformation(approvalsArray);
+  return Finding.fromObject({
+    name: "High number of accounts granted approvals for ERC-20 tokens",
+    description: `${spender} obtained transfer approval for ${assets.length} ERC-20 tokens by ${accounts.length} accounts over period of ${days} days.`,
+    alertId: "ICE-PHISHING-HIGH-NUM-ERC20-APPROVALS-INFO",
+    severity: FindingSeverity.Info,
+    type: FindingType.Info,
+    metadata: {
+      firstTxHash,
+      lastTxHash,
+    },
+    addresses: assets,
+  });
+}
+
 function createHighNumApprovalsAlertERC721(spender, approvalsArray) {
   const { firstTxHash, lastTxHash, assets, accounts, days } = getEventInformation(approvalsArray);
   return Finding.fromObject({
@@ -50,6 +71,22 @@ function createHighNumApprovalsAlertERC721(spender, approvalsArray) {
     alertId: "ICE-PHISHING-HIGH-NUM-ERC721-APPROVALS",
     severity: FindingSeverity.Low,
     type: FindingType.Suspicious,
+    metadata: {
+      firstTxHash,
+      lastTxHash,
+    },
+    addresses: assets,
+  });
+}
+
+function createHighNumApprovalsInfoAlertERC721(spender, approvalsArray) {
+  const { firstTxHash, lastTxHash, assets, accounts, days } = getEventInformation(approvalsArray);
+  return Finding.fromObject({
+    name: "High number of accounts granted approvals for ERC-721 tokens",
+    description: `${spender} obtained transfer approval for ${assets.length} ERC-721 tokens by ${accounts.length} accounts over period of ${days} days.`,
+    alertId: "ICE-PHISHING-HIGH-NUM-ERC721-APPROVALS-INFO",
+    severity: FindingSeverity.Info,
+    type: FindingType.Info,
     metadata: {
       firstTxHash,
       lastTxHash,
@@ -73,6 +110,21 @@ function createApprovalForAllAlertERC721(spender, owner, asset) {
   });
 }
 
+function createApprovalForAllInfoAlertERC721(spender, owner, asset) {
+  return Finding.fromObject({
+    name: "Account got approval for all ERC-721 tokens",
+    description: `${spender} obtained transfer approval for all ERC-721 tokens from ${owner}`,
+    alertId: "ICE-PHISHING-ERC721-APPROVAL-FOR-ALL-INFO",
+    severity: FindingSeverity.Info,
+    type: FindingType.Info,
+    metadata: {
+      spender,
+      owner,
+    },
+    addresses: [asset],
+  });
+}
+
 function createApprovalForAllAlertERC1155(spender, owner, asset) {
   return Finding.fromObject({
     name: "Account got approval for all ERC-1155 tokens",
@@ -88,6 +140,21 @@ function createApprovalForAllAlertERC1155(spender, owner, asset) {
   });
 }
 
+function createApprovalForAllInfoAlertERC1155(spender, owner, asset) {
+  return Finding.fromObject({
+    name: "Account got approval for all ERC-1155 tokens",
+    description: `${spender} obtained transfer approval for all ERC-1155 tokens from ${owner}`,
+    alertId: "ICE-PHISHING-ERC1155-APPROVAL-FOR-ALL-INFO",
+    severity: FindingSeverity.Info,
+    type: FindingType.Info,
+    metadata: {
+      spender,
+      owner,
+    },
+    addresses: [asset],
+  });
+}
+
 function createPermitAlert(msgSender, spender, owner, asset) {
   return Finding.fromObject({
     name: "Account got permission for ERC-20 tokens",
@@ -95,6 +162,22 @@ function createPermitAlert(msgSender, spender, owner, asset) {
     alertId: "ICE-PHISHING-ERC20-PERMIT",
     severity: FindingSeverity.Low,
     type: FindingType.Suspicious,
+    metadata: {
+      msgSender,
+      spender,
+      owner,
+    },
+    addresses: [asset],
+  });
+}
+
+function createPermitInfoAlert(msgSender, spender, owner, asset) {
+  return Finding.fromObject({
+    name: "Account got permission for ERC-20 tokens",
+    description: `${msgSender} gave permission to ${spender} for ${owner}'s ERC-20 tokens`,
+    alertId: "ICE-PHISHING-ERC20-PERMIT-INFO",
+    severity: FindingSeverity.Info,
+    type: FindingType.Info,
     metadata: {
       msgSender,
       spender,
@@ -172,6 +255,22 @@ function createHighNumTransfersAlert(spender, transfersArray) {
   });
 }
 
+function createHighNumTransfersLowSeverityAlert(spender, transfersArray) {
+  const { firstTxHash, lastTxHash, assets, accounts, days } = getEventInformation(transfersArray);
+  return Finding.fromObject({
+    name: "Previously approved assets transferred",
+    description: `${spender} transferred ${assets.length} assets from ${accounts.length} accounts over period of ${days} days.`,
+    alertId: "ICE-PHISHING-HIGH-NUM-APPROVED-TRANSFERS-LOW",
+    severity: FindingSeverity.Low,
+    type: FindingType.Suspicious,
+    metadata: {
+      firstTxHash,
+      lastTxHash,
+    },
+    addresses: assets,
+  });
+}
+
 function createPermitTransferAlert(spender, owner, receiver, asset, value) {
   return Finding.fromObject({
     name: "Previously permitted assets transferred",
@@ -179,6 +278,22 @@ function createPermitTransferAlert(spender, owner, receiver, asset, value) {
     alertId: "ICE-PHISHING-PERMITTED-ERC20-TRANSFER",
     severity: FindingSeverity.Critical,
     type: FindingType.Exploit,
+    metadata: {
+      spender,
+      owner,
+      receiver,
+    },
+    addresses: asset,
+  });
+}
+
+function createPermitTransferMediumSeverityAlert(spender, owner, receiver, asset, value) {
+  return Finding.fromObject({
+    name: "Previously permitted assets transferred",
+    description: `${spender} transferred ${value} tokens from ${owner} to ${receiver}`,
+    alertId: "ICE-PHISHING-PERMITTED-ERC20-TRANSFER-MEDIUM",
+    severity: FindingSeverity.Medium,
+    type: FindingType.Suspicious,
     metadata: {
       spender,
       owner,
@@ -198,6 +313,11 @@ function getEtherscanAddressUrl(address, chainId) {
   return `${urlAccount}&address=${address}&startblock=0&endblock=99999999&sort=asc&apikey=${key}`;
 }
 
+function getEtherscanContractCreatorUrl(address, chainId) {
+  const { urlAccount, key } = etherscanApis[chainId];
+  return `${urlAccount}&address=${address}&startblock=0&endblock=99999999&sort=asc&apikey=${key}`;
+}
+
 async function getEoaType(address, provider, blockNumber) {
   const nonce = await provider.getTransactionCount(address, blockNumber);
   return nonce > nonceThreshold ? AddressType.EoaWithHighNonce : AddressType.EoaWithLowNonce;
@@ -213,17 +333,19 @@ async function getContractType(address, chainId) {
 
   const isVerified = result.data.status === "1";
 
-  if (isVerified) {
-    return AddressType.VerifiedContract;
-  }
-
   result = await axios.get(getEtherscanAddressUrl(address, chainId));
   if (result.data.message.startsWith("NOTOK")) {
     console.log(`block explorer error occured; skipping check for ${address}`);
     return null;
   }
-  const hasHighNumberOfTotalTxs = result.data.result.length > contractTxsThreshold;
-  return hasHighNumberOfTotalTxs ? AddressType.HighNumTxsUnverifiedContract : AddressType.UnverifiedContract;
+
+  if (isVerified) {
+    const hasHighNumberOfTotalTxs = result.data.result.length > verifiedContractTxsThreshold;
+    return hasHighNumberOfTotalTxs ? AddressType.HighNumTxsVerifiedContract : AddressType.VerifiedContract;
+  } else {
+    const hasHighNumberOfTotalTxs = result.data.result.length > contractTxsThreshold;
+    return hasHighNumberOfTotalTxs ? AddressType.HighNumTxsUnverifiedContract : AddressType.UnverifiedContract;
+  }
 }
 
 async function getAddressType(address, scamAddresses, cachedAddresses, provider, blockNumber, chainId, isOwner) {
@@ -244,7 +366,7 @@ async function getAddressType(address, scamAddresses, cachedAddresses, provider,
     if (
       isOwner ||
       type === AddressType.EoaWithHighNonce ||
-      type === AddressType.VerifiedContract ||
+      type === AddressType.HighNumTxsVerifiedContract ||
       type.startsWith("Ignored")
     ) {
       return type;
@@ -302,12 +424,19 @@ async function getERC1155Balance(token, id, account, provider, blockNumber) {
 
 module.exports = {
   createHighNumApprovalsAlertERC20,
+  createHighNumApprovalsInfoAlertERC20,
   createHighNumApprovalsAlertERC721,
+  createHighNumApprovalsInfoAlertERC721,
   createHighNumTransfersAlert,
+  createHighNumTransfersLowSeverityAlert,
   createPermitTransferAlert,
+  createPermitTransferMediumSeverityAlert,
   createApprovalForAllAlertERC721,
+  createApprovalForAllInfoAlertERC721,
   createApprovalForAllAlertERC1155,
+  createApprovalForAllInfoAlertERC1155,
   createPermitAlert,
+  createPermitInfoAlert,
   createPermitScamAlert,
   createApprovalScamAlert,
   createTransferScamAlert,

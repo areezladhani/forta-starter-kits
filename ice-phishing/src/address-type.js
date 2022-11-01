@@ -4,6 +4,7 @@ module.exports = {
   UnverifiedContract: "UnverifiedContract",
   HighNumTxsUnverifiedContract: "HighNumTxsUnverifiedContract",
   VerifiedContract: "VerifiedContract",
+  HighNumTxsVerifiedContract: "HighNumTxsVerifiedContract",
   IgnoredEoa: "IgnoredEoa",
   IgnoredContract: "IgnoredContract",
   ScamAddress: "ScamAddress",
