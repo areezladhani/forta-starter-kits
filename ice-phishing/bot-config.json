@@ -13,7 +13,7 @@
       "key": "YourApiKeyToken",
       "urlContract": "https://api.etherscan.io/api?module=contract&action=getabi",
       "urlAccount": "https://api.etherscan.io/api?module=account&action=txlist",
-      "urlContractCreation:": "https://api.etherscan.io/api?module=contract&action=getcontractcreation"
+      "urlContractCreation": "https://api.etherscan.io/api?module=contract&action=getcontractcreation"
     },
     "10": {
       "key": "YourApiKeyToken",

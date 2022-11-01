@@ -17,9 +17,13 @@ const {
   createPermitAlert,
   createPermitInfoAlert,
   createPermitScamAlert,
+  createPermitScamCreatorAlert,
   createApprovalScamAlert,
+  createApprovalScamCreatorAlert,
   createTransferScamAlert,
+  createTransferScamCreatorAlert,
   getAddressType,
+  getContractCreator,
   getBalance,
   getERC1155Balance,
 } = require("./helper");
@@ -160,6 +164,59 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
           (spenderType === AddressType.VerifiedContract || spenderType === AddressType.EoaWithHighNonce) &&
           (msgSenderType === AddressType.VerifiedContract || msgSenderType === AddressType.EoaWithHighNonce)
         ) {
+          let spenderContractCreator,
+            spenderContractCreatorType,
+            msgSenderContractCreator,
+            msgSenderContractCreatorType;
+          if (spenderType === AddressType.VerifiedContract) {
+            spenderContractCreator = await getContractCreator(spender, chainId);
+            spenderContractCreatorType = await getAddressType(
+              spenderContractCreator,
+              scamAddresses,
+              cachedAddresses,
+              provider,
+              blockNumber,
+              chainId,
+              false
+            );
+          }
+          if (msgSenderType === AddressType.VerifiedContract) {
+            msgSenderContractCreator = await getContractCreator(txFrom, chainId);
+            msgSenderContractCreatorType = await getAddressType(
+              msgSenderContractCreator,
+              scamAddresses,
+              cachedAddresses,
+              provider,
+              blockNumber,
+              chainId,
+              false
+            );
+          }
+
+          if (
+            (spenderContractCreator && spenderContractCreatorType === AddressType.ScamAddress) ||
+            (msgSenderContractCreator && msgSenderContractCreatorType === AddressType.ScamAddress)
+          ) {
+            const scamSnifferDB = await axios.get(
+              "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
+            );
+            const scamDomains = Object.keys(scamSnifferDB.data).filter(
+              (key) =>
+                scamSnifferDB.data[key].includes(msgSenderContractCreator) ||
+                scamSnifferDB.data[key].includes(spenderContractCreator)
+            );
+            let _scamAddresses = [];
+            if (spenderContractCreatorType === AddressType.VerifiedContract) {
+              _scamAddresses.push(spenderContractCreatorType);
+            }
+            if (msgSenderContractCreator === AddressType.VerifiedContract) {
+              _scamAddresses.push(msgSenderContractCreator);
+            }
+            if (_scamAddresses.length > 0) {
+              findings.push(createPermitScamCreatorAlert(txFrom, spender, owner, asset, _scamAddresses, scamDomains));
+            }
+          }
+
           if (!permissionsInfoSeverity[spender]) permissionsInfoSeverity[spender] = [];
           permissionsInfoSeverity[spender].push({
             asset,
@@ -202,7 +259,13 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         chainId,
         true
       );
-      if (ownerType === AddressType.UnverifiedContract || ownerType === AddressType.VerifiedContract) return;
+      if (
+        ownerType === AddressType.UnverifiedContract ||
+        ownerType === AddressType.HighNumTxsUnverifiedContract ||
+        ownerType === AddressType.VerifiedContract ||
+        ownerType === AddressType.HighNumTxsVerifiedContract
+      )
+        return;
 
       // Skip if the spender
       // has high nonce (probably CEX)
@@ -349,12 +412,24 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         if (!_approvals[spender]) continue;
         _approvals[spender].filter((a) => timestamp - a.timestamp < TIME_PERIOD);
       }
-      if (spenderType === AddressType.ScamAddress) {
+      if (spenderType === AddressType.ScamAddress || spenderType === AddressType.VerifiedContract) {
         const scamSnifferDB = await axios.get(
           "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
         );
-        const scamDomains = Object.keys(scamSnifferDB.data).filter((key) => scamSnifferDB.data[key].includes(spender));
-        findings.push(createApprovalScamAlert(spender, owner, asset, scamDomains));
+        if (spenderType === AddressType.ScamAddress) {
+          const scamDomains = Object.keys(scamSnifferDB.data).filter((key) =>
+            scamSnifferDB.data[key].includes(spender)
+          );
+          findings.push(createApprovalScamAlert(spender, owner, asset, scamDomains));
+        } else {
+          const spenderContractCreator = await getContractCreator(spender, chainId);
+          const scamDomains = Object.keys(scamSnifferDB.data).filter((key) =>
+            scamSnifferDB.data[key].includes(spenderContractCreator)
+          );
+          if (scamDomains.length > 0) {
+            findings.push(createApprovalScamCreatorAlert(spender, spenderContractCreator, owner, asset, scamDomains));
+          }
+        }
       }
 
       // Ignore the address until the end of the period if there are a lot of approvals
@@ -449,6 +524,51 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
           _scamAddresses.push(txFrom);
         }
         findings.push(createTransferScamAlert(txFrom, from, to, asset, _scamAddresses, scamDomains));
+      }
+
+      if (txFromType === AddressType.VerifiedContract || toType === AddressType.VerifiedContract) {
+        let txFromContractCreator, toContractCreator;
+        txFromContractCreator = await getContractCreator(txFrom, chainId);
+        const txFromContractCreatorType = await getAddressType(
+          txFromContractCreator,
+          scamAddresses,
+          cachedAddresses,
+          provider,
+          blockNumber,
+          chainId,
+          false
+        );
+        toContractCreator = await getContractCreator(to, chainId);
+        const toContractCreatorType = await getAddressType(
+          toContractCreator,
+          scamAddresses,
+          cachedAddresses,
+          provider,
+          blockNumber,
+          chainId,
+          false
+        );
+        if (
+          txFromContractCreatorType === AddressType.ScamAddress ||
+          toContractCreatorType === AddressType.ScamAddress
+        ) {
+          const scamSnifferDB = await axios.get(
+            "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
+          );
+          const scamDomains = Object.keys(scamSnifferDB.data).filter(
+            (key) =>
+              scamSnifferDB.data[key].includes(txFromContractCreator) ||
+              scamSnifferDB.data[key].includes(toContractCreator)
+          );
+          let _scamAddresses = [];
+          if (toContractCreatorType === AddressType.ScamAddress) {
+            _scamAddresses.push(toContractCreator);
+          }
+          if (txFromContractCreatorType === AddressType.ScamAddress) {
+            _scamAddresses.push(txFromContractCreator);
+          }
+          findings.push(createTransferScamCreatorAlert(txFrom, from, to, asset, _scamAddresses, scamDomains));
+        }
       }
 
       // Check if we monitor the spender

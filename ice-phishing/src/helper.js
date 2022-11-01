@@ -205,6 +205,24 @@ function createPermitScamAlert(msgSender, spender, owner, asset, scamAddresses, 
   });
 }
 
+function createPermitScamCreatorAlert(msgSender, spender, owner, asset, scamAddresses, scamDomains) {
+  return Finding.fromObject({
+    name: "Contract created by a known scam address was involved in an ERC-20 permission",
+    description: `${msgSender} gave permission to ${spender} for ${owner}'s ERC-20 tokens`,
+    alertId: "ICE-PHISHING-ERC20-SCAM-CREATOR-PERMIT",
+    severity: FindingSeverity.High,
+    type: FindingType.Suspicious,
+    metadata: {
+      scamAddresses,
+      scamDomains,
+      msgSender,
+      spender,
+      owner,
+    },
+    addresses: [asset],
+  });
+}
+
 function createApprovalScamAlert(scamSpender, owner, asset, scamDomains) {
   return Finding.fromObject({
     name: "Known scam address got approval to spend assets",
@@ -221,11 +239,46 @@ function createApprovalScamAlert(scamSpender, owner, asset, scamDomains) {
   });
 }
 
+function createApprovalScamCreatorAlert(spender, scamCreator, owner, asset, scamDomains) {
+  return Finding.fromObject({
+    name: "Contract, created by a known scam address, got approval to spend assets",
+    description: `${spender}, created by the scam address ${scamCreator}, got approval for ${owner}'s assets`,
+    alertId: "ICE-PHISHING-SCAM-CREATOR-APPROVAL",
+    severity: FindingSeverity.High,
+    type: FindingType.Suspicious,
+    metadata: {
+      scamDomains,
+      scamCreator,
+      spender,
+      owner,
+    },
+    addresses: [asset],
+  });
+}
+
 function createTransferScamAlert(msgSender, owner, receiver, asset, scamAddresses, scamDomains) {
   return Finding.fromObject({
     name: "Known scam address was involved in an asset transfer",
     description: `${msgSender} transferred assets from ${owner} to ${receiver}`,
     alertId: "ICE-PHISHING-SCAM-TRANSFER",
+    severity: FindingSeverity.Critical,
+    type: FindingType.Exploit,
+    metadata: {
+      scamAddresses,
+      scamDomains,
+      msgSender,
+      owner,
+      receiver,
+    },
+    addresses: [asset],
+  });
+}
+
+function createTransferScamCreatorAlert(msgSender, owner, receiver, asset, scamAddresses, scamDomains) {
+  return Finding.fromObject({
+    name: "Contract, created by a known scam address, was involved in an asset transfer",
+    description: `${msgSender} transferred assets from ${owner} to ${receiver}`,
+    alertId: "ICE-PHISHING-SCAM-CREATOR-TRANSFER",
     severity: FindingSeverity.Critical,
     type: FindingType.Exploit,
     metadata: {
@@ -313,9 +366,18 @@ function getEtherscanAddressUrl(address, chainId) {
   return `${urlAccount}&address=${address}&startblock=0&endblock=99999999&sort=asc&apikey=${key}`;
 }
 
-function getEtherscanContractCreatorUrl(address, chainId) {
-  const { urlAccount, key } = etherscanApis[chainId];
-  return `${urlAccount}&address=${address}&startblock=0&endblock=99999999&sort=asc&apikey=${key}`;
+async function getContractCreator(address, chainId) {
+  const { urlContractCreation, key } = etherscanApis[chainId];
+  const url = `${urlContractCreation}&contractaddresses=${address}&apikey=${key}`;
+
+  const result = await axios.get(url);
+
+  if (result.data.message.startsWith("NOTOK")) {
+    console.log(`block explorer error occured; skipping check for ${address}`);
+    return null;
+  }
+
+  return result.data.result[0].contractCreator;
 }
 
 async function getEoaType(address, provider, blockNumber) {
@@ -438,9 +500,13 @@ module.exports = {
   createPermitAlert,
   createPermitInfoAlert,
   createPermitScamAlert,
+  createPermitScamCreatorAlert,
   createApprovalScamAlert,
+  createApprovalScamCreatorAlert,
   createTransferScamAlert,
+  createTransferScamCreatorAlert,
   getAddressType,
+  getContractCreator,
   getBalance,
   getERC1155Balance,
 };
