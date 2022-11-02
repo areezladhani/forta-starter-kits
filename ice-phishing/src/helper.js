@@ -227,7 +227,8 @@ function createPermitSuspiciousContractAlert(msgSender, spender, owner, asset, s
     severity: FindingSeverity.Medium,
     type: FindingType.Suspicious,
     metadata: {
-      suspiciousContract,
+      suspiciousContract: suspiciousContract.address,
+      suspiciousContractCreator: suspiciousContract.creator,
       msgSender,
       spender,
       owner,
@@ -252,7 +253,7 @@ function createApprovalScamAlert(scamSpender, owner, asset, scamDomains) {
   });
 }
 
-function createApprovalSuspiciousContractAlert(suspiciousSpender, owner, asset) {
+function createApprovalSuspiciousContractAlert(suspiciousSpender, owner, asset, creator) {
   return Finding.fromObject({
     name: "Suspicious contract got approval to spend assets",
     description: `Suspicious contract ${scamSpender} got approval for ${owner}'s assets`,
@@ -261,6 +262,7 @@ function createApprovalSuspiciousContractAlert(suspiciousSpender, owner, asset) 
     type: FindingType.Suspicious,
     metadata: {
       suspiciousSpender,
+      suspiciousContractCreator: creator,
       owner,
     },
     addresses: [asset],
@@ -310,7 +312,8 @@ function createTransferSuspiciousContractAlert(msgSender, owner, receiver, asset
     severity: FindingSeverity.High,
     type: FindingType.Suspicious,
     metadata: {
-      suspiciousContract,
+      suspiciousContract: suspiciousContract.address,
+      suspiciousContractCreator: suspiciousContract.creator,
       msgSender,
       owner,
       receiver,
@@ -535,8 +538,9 @@ async function getSuspiciousContracts(chainId, blockNumber, init) {
     }
 
     fortaResponse.alerts.forEach((alert) => {
-      contracts.push(alert.description.slice(0, -60));
+      contracts.push({ address: alert.description.slice(-42), creator: alert.description.slice(0, 42) });
     });
+
     startingCursor = fortaResponse.pageInfo.endCursor;
     while (startingCursor.blockNumber > 0) {
       let fortaResponse;
@@ -563,14 +567,18 @@ async function getSuspiciousContracts(chainId, blockNumber, init) {
           startingCursor: startingCursor,
         });
       }
-
       fortaResponse.alerts.forEach((alert) => {
-        contracts.push(alert.description.slice(0, -60));
+        contracts.push({ address: alert.description.slice(-42), creator: alert.description.slice(0, 42) });
       });
 
       startingCursor = fortaResponse.pageInfo.endCursor;
     }
-    contracts = contracts.map((contract) => ethers.utils.getAddress(contract));
+    contracts = contracts.map((contract) => {
+      return {
+        address: ethers.utils.getAddress(contract.address),
+        creator: ethers.utils.getAddress(contract.creator),
+      };
+    });
     return new Set(contracts);
   } else {
     let fortaResponse;
@@ -596,9 +604,14 @@ async function getSuspiciousContracts(chainId, blockNumber, init) {
       });
     }
     fortaResponse.alerts.forEach((alert) => {
-      contracts.push(alert.description.slice(0, -60));
+      contracts.push({ address: alert.description.slice(-42), creator: alert.description.slice(0, 42) });
     });
-    contracts = contracts.map((contract) => ethers.utils.getAddress(contract));
+    contracts = contracts.map((contract) => {
+      return {
+        address: ethers.utils.getAddress(contract.address),
+        creator: ethers.utils.getAddress(contract.creator),
+      };
+    });
     return new Set(contracts);
   }
 }

@@ -153,6 +153,7 @@ This bot detects if an account (EOA with low nonce or unverified contract with l
     - Type is always set to "suspicious"
     - Metadata:
       - `suspiciousContract` - The address of the suspicious contract
+      - `suspiciousContractCreator` - The address of the suspicious contract creator
       - `msgSender` - the account that called the asset's `permit` function
       - `spender` - the account that received the permission
       - `owner` - the owner of the assets
@@ -188,6 +189,7 @@ This bot detects if an account (EOA with low nonce or unverified contract with l
     - Type is always set to "suspicious"
     - Metadata:
       - `suspiciousSpender` - the address of the suspicious spender
+      - `suspiciousContractCreator` - the address of the suspicious contract creator
       - `owner` - the owner of the assets
     - Addresses contain the approved asset address
 
@@ -224,6 +226,7 @@ This bot detects if an account (EOA with low nonce or unverified contract with l
     - Type is always set to "suspicious"
     - Metadata:
       - `suspiciousContract` - The address of the suspicious contract
+      - `suspiciousContractCreator` - The address of the suspicious contract creator
       - `msgSender` - The account that initiated the transfer
       - `owner` - The owner of the assets
       - `receiver` - The account that received the assets

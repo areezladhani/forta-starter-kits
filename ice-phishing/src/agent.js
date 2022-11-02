@@ -175,9 +175,11 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
             msgSenderContractCreator,
             msgSenderContractCreatorType;
           if (spenderType === AddressType.VerifiedContract) {
-            if (suspiciousContracts.has(spender)) {
-              findings.push(createPermitSuspiciousContractAlert(txFrom, spender, owner, asset, spender));
-            }
+            suspiciousContracts.forEach((contract) => {
+              if (contract.address === spender) {
+                findings.push(createPermitSuspiciousContractAlert(txFrom, spender, owner, asset, contract));
+              }
+            });
             spenderContractCreator = await getContractCreator(spender, chainId);
             if (spenderContractCreator) {
               spenderContractCreatorType = await getAddressType(
@@ -192,9 +194,11 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
             }
           }
           if (msgSenderType === AddressType.VerifiedContract) {
-            if (suspiciousContracts.has(txFrom)) {
-              findings.push(createPermitSuspiciousContractAlert(txFrom, spender, owner, asset, txFrom));
-            }
+            suspiciousContracts.forEach((contract) => {
+              if (contract.address === txFrom) {
+                findings.push(createPermitSuspiciousContractAlert(txFrom, spender, owner, asset, contract));
+              }
+            });
             msgSenderContractCreator = await getContractCreator(txFrom, chainId);
             if (msgSenderContractCreator) {
               msgSenderContractCreatorType = await getAddressType(
@@ -438,9 +442,11 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
           );
           findings.push(createApprovalScamAlert(spender, owner, asset, scamDomains));
         } else {
-          if (suspiciousContracts.has(spender)) {
-            findings.push(createApprovalSuspiciousContractAlert(spender, owner, asset));
-          }
+          suspiciousContracts.forEach((contract) => {
+            if (contract.address === spender) {
+              findings.push(createApprovalSuspiciousContractAlert(spender, owner, asset, contract.creator));
+            }
+          });
 
           const spenderContractCreator = await getContractCreator(spender, chainId);
           if (spenderContractCreator) {
@@ -551,9 +557,11 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
       if (txFromType === AddressType.VerifiedContract || toType === AddressType.VerifiedContract) {
         let txFromContractCreator, txFromContractCreatorType, toContractCreator, toContractCreatorType;
         if (txFromType === AddressType.VerifiedContract) {
-          if (suspiciousContracts.has(txFrom)) {
-            findings.push(createTransferSuspiciousContractAlert(txFrom, from, to, asset, txFrom));
-          }
+          suspiciousContracts.forEach((contract) => {
+            if (contract.address === txFrom) {
+              findings.push(createTransferSuspiciousContractAlert(txFrom, from, to, asset, contract));
+            }
+          });
           txFromContractCreator = await getContractCreator(txFrom, chainId);
           if (txFromContractCreator) {
             txFromContractCreatorType = await getAddressType(
@@ -568,9 +576,11 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
           }
         }
         if (toType === AddressType.VerifiedContract) {
-          if (suspiciousContracts.has(to)) {
-            findings.push(createTransferSuspiciousContractAlert(txFrom, from, to, asset, to));
-          }
+          suspiciousContracts.forEach((contract) => {
+            if (contract.address === to) {
+              findings.push(createTransferSuspiciousContractAlert(txFrom, from, to, asset, contract));
+            }
+          });
           toContractCreator = await getContractCreator(to, chainId);
           if (toContractCreator) {
             toContractCreatorType = await getAddressType(

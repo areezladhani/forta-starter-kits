@@ -460,10 +460,11 @@ describe("ice-phishing bot", () => {
       const initialize = provideInitialize(mockProvider);
       await initialize();
 
-      // resetScamAddresses();
       const mockBlockEvent = { block: { number: 876123 } };
       handleBlock = provideHandleBlock(mockGetSuspiciousContracts);
-      mockGetSuspiciousContracts.mockResolvedValueOnce(new Set([createAddress("0xabcdabcd")]));
+      mockGetSuspiciousContracts.mockResolvedValueOnce(
+        new Set([{ address: createAddress("0xabcdabcd"), creator: createAddress("0xeeffeeff") }])
+      );
       const axiosResponse = { data: [createAddress("0x5050")] };
       axios.get.mockResolvedValueOnce(axiosResponse);
 
@@ -509,6 +510,7 @@ describe("ice-phishing bot", () => {
             owner: owner1,
             spender: createAddress("0xabcdabcd"),
             suspiciousContract: createAddress("0xabcdabcd"),
+            suspiciousContractCreator: createAddress("0xeeffeeff"),
           },
           addresses: [asset],
         }),
@@ -1747,8 +1749,15 @@ describe("ice-phishing bot", () => {
 
     it("should return findings if a suspicious contract is involved in a transfer", async () => {
       resetInit();
+      mockProvider.getNetwork.mockReturnValueOnce({ chainId: "1" });
+      const initialize = provideInitialize(mockProvider);
+      await initialize();
       const suspiciousSpender = createChecksumAddress("0xabcdabcd");
-      mockGetSuspiciousContracts.mockResolvedValueOnce(new Set([suspiciousSpender]));
+      const suspiciousContractCreator = createChecksumAddress("0xfefefe");
+      handleBlock = provideHandleBlock(mockGetSuspiciousContracts);
+      mockGetSuspiciousContracts.mockResolvedValueOnce(
+        new Set([{ address: suspiciousSpender, creator: suspiciousContractCreator }])
+      );
       const mockBlockEvent = { block: { timestamp: 1000 } };
       const axiosResponse = { data: [] };
       axios.get.mockResolvedValueOnce(axiosResponse);
@@ -1790,6 +1799,7 @@ describe("ice-phishing bot", () => {
             owner: owner1,
             receiver: mockTransferEvents[0].args.to,
             suspiciousContract: suspiciousSpender,
+            suspiciousContractCreator,
           },
           addresses: [asset],
         }),
