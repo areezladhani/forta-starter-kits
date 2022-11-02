@@ -146,6 +146,18 @@ This bot detects if an account (EOA with low nonce or unverified contract with l
       - `owner` - the owner of the assets
     - Addresses contain the permitted asset address
 
+- ICE-PHISHING-ERC20-SUSPICIOUS-PERMIT
+
+  - Fired when a known scam address is involved in an ERC-20 permission.
+    - Severity is always set to "medium"
+    - Type is always set to "suspicious"
+    - Metadata:
+      - `suspiciousContract` - The address of the suspicious contract
+      - `msgSender` - the account that called the asset's `permit` function
+      - `spender` - the account that received the permission
+      - `owner` - the owner of the assets
+    - Addresses contain the permitted asset address
+
 - ICE-PHISHING-SCAM-APPROVAL
 
   - Fired when a known scam address gets approval to spend assets.
@@ -166,6 +178,16 @@ This bot detects if an account (EOA with low nonce or unverified contract with l
       - `scamDomains` - The list of domains related to the scam addresses
       - `scamCreator` - The scam address that created the contract
       - `spender` - the contract that received the approval
+      - `owner` - the owner of the assets
+    - Addresses contain the approved asset address
+
+- ICE-PHISHING-SUSPICIOUS-APPROVAL
+
+  - Fired when a known scam address gets approval to spend assets.
+    - Severity is always set to "medium"
+    - Type is always set to "suspicious"
+    - Metadata:
+      - `suspiciousSpender` - the address of the suspicious spender
       - `owner` - the owner of the assets
     - Addresses contain the approved asset address
 
@@ -190,6 +212,18 @@ This bot detects if an account (EOA with low nonce or unverified contract with l
     - Metadata:
       - `scamAddresses` - The list of known scam addresses that were involved in the transfer
       - `scamDomains` - The list of domains related to the scam addresses
+      - `msgSender` - The account that initiated the transfer
+      - `owner` - The owner of the assets
+      - `receiver` - The account that received the assets
+    - Addresses contain the transferred asset address
+
+- ICE-PHISHING-SUSPICIOUS-TRANSFER
+
+  - Fired when a suspicious contract is involved in an asset transfer.
+    - Severity is always set to "high"
+    - Type is always set to "suspicious"
+    - Metadata:
+      - `suspiciousContract` - The address of the suspicious contract
       - `msgSender` - The account that initiated the transfer
       - `owner` - The owner of the assets
       - `receiver` - The account that received the assets
