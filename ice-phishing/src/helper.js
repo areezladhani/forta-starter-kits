@@ -443,7 +443,7 @@ async function getContractType(address, chainId) {
   const isVerified = result.data.status === "1";
 
   result = await axios.get(getEtherscanAddressUrl(address, chainId));
-  if (result.data.message.startsWith("NOTOK")) {
+  if (result.data.message.startsWith("NOTOK") || result.data.message.startsWith("Query Timeout")) {
     console.log(`block explorer error occured; skipping check for ${address}`);
     return null;
   }
@@ -511,30 +511,58 @@ async function getSuspiciousContracts(chainId, blockNumber, init) {
   let contracts = [];
   let startingCursor;
   if (!init) {
-    const fortaResponse = await getAlerts({
-      botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
-      chainId: chainId,
-      blockNumberRange: {
-        startBlockNumber: 0,
-        endBlockNumber: blockNumber,
-      },
-      first: 5000,
-    });
+    let fortaResponse;
+    try {
+      fortaResponse = await getAlerts({
+        botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+        chainId: chainId,
+        blockNumberRange: {
+          startBlockNumber: blockNumber - 20000,
+          endBlockNumber: blockNumber,
+        },
+        first: 6000,
+      });
+    } catch {
+      fortaResponse = await getAlerts({
+        botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+        chainId: chainId,
+        blockNumberRange: {
+          startBlockNumber: blockNumber - 20000,
+          endBlockNumber: blockNumber,
+        },
+        first: 6000,
+      });
+    }
+
     fortaResponse.alerts.forEach((alert) => {
       contracts.push(alert.description.slice(0, -60));
     });
     startingCursor = fortaResponse.pageInfo.endCursor;
     while (startingCursor.blockNumber > 0) {
-      const fortaResponse = await getAlerts({
-        botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
-        chainId: chainId,
-        blockNumberRange: {
-          startBlockNumber: 0,
-          endBlockNumber: blockNumber,
-        },
-        first: 5000,
-        startingCursor: startingCursor,
-      });
+      let fortaResponse;
+      try {
+        fortaResponse = await getAlerts({
+          botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+          chainId: chainId,
+          blockNumberRange: {
+            startBlockNumber: blockNumber - 20000,
+            endBlockNumber: blockNumber,
+          },
+          first: 1000,
+          startingCursor: startingCursor,
+        });
+      } catch {
+        fortaResponse = await getAlerts({
+          botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+          chainId: chainId,
+          blockNumberRange: {
+            startBlockNumber: blockNumber - 20000,
+            endBlockNumber: blockNumber,
+          },
+          first: 1000,
+          startingCursor: startingCursor,
+        });
+      }
 
       fortaResponse.alerts.forEach((alert) => {
         contracts.push(alert.description.slice(0, -60));
@@ -542,20 +570,35 @@ async function getSuspiciousContracts(chainId, blockNumber, init) {
 
       startingCursor = fortaResponse.pageInfo.endCursor;
     }
+    contracts = contracts.map((contract) => ethers.utils.getAddress(contract));
     return new Set(contracts);
   } else {
-    const fortaResponse = await getAlerts({
-      botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
-      chainId: chainId,
-      blockNumberRange: {
-        startBlockNumber: blockNumber - 1,
-        endBlockNumber: blockNumber,
-      },
-      first: 2000,
-    });
+    let fortaResponse;
+    try {
+      fortaResponse = await getAlerts({
+        botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+        chainId: chainId,
+        blockNumberRange: {
+          startBlockNumber: blockNumber - 1,
+          endBlockNumber: blockNumber,
+        },
+        first: 1000,
+      });
+    } catch {
+      fortaResponse = await getAlerts({
+        botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+        chainId: chainId,
+        blockNumberRange: {
+          startBlockNumber: blockNumber - 1,
+          endBlockNumber: blockNumber,
+        },
+        first: 1000,
+      });
+    }
     fortaResponse.alerts.forEach((alert) => {
       contracts.push(alert.description.slice(0, -60));
     });
+    contracts = contracts.map((contract) => ethers.utils.getAddress(contract));
     return new Set(contracts);
   }
 }
