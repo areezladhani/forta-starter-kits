@@ -1,13 +1,9 @@
-const { Finding, FindingSeverity, FindingType, ethers } = require("forta-agent");
+const { Finding, FindingSeverity, FindingType, ethers, getAlerts } = require("forta-agent");
 const { default: axios } = require("axios");
 const LRU = require("lru-cache");
-const {
-  nonceThreshold,
-  contractTxsThreshold,
-  verifiedContractTxsThreshold,
-  etherscanApis,
-} = require("../bot-config.json");
-const { ERC_20_721_INTERFACE, ERC_1155_INTERFACE } = require("./utils");
+const { nonceThreshold, contractTxsThreshold, verifiedContractTxsThreshold } = require("../bot-config.json");
+const { etherscanApis } = require("./config");
+const { SUSPICIOUS_CONTRACT_CREATION_BOT_ID, ERC_20_721_INTERFACE, ERC_1155_INTERFACE } = require("./utils");
 const AddressType = require("./address-type");
 
 // Computes the data needed for an alert
@@ -223,6 +219,23 @@ function createPermitScamCreatorAlert(msgSender, spender, owner, asset, scamAddr
   });
 }
 
+function createPermitSuspiciousContractAlert(msgSender, spender, owner, asset, suspiciousContract) {
+  return Finding.fromObject({
+    name: "Suspicious contract was involved in an ERC-20 permission",
+    description: `${msgSender} gave permission to ${spender} for ${owner}'s ERC-20 tokens`,
+    alertId: "ICE-PHISHING-ERC20-SUSPICIOUS-PERMIT",
+    severity: FindingSeverity.Medium,
+    type: FindingType.Suspicious,
+    metadata: {
+      suspiciousContract,
+      msgSender,
+      spender,
+      owner,
+    },
+    addresses: [asset],
+  });
+}
+
 function createApprovalScamAlert(scamSpender, owner, asset, scamDomains) {
   return Finding.fromObject({
     name: "Known scam address got approval to spend assets",
@@ -233,6 +246,21 @@ function createApprovalScamAlert(scamSpender, owner, asset, scamDomains) {
     metadata: {
       scamDomains,
       scamSpender,
+      owner,
+    },
+    addresses: [asset],
+  });
+}
+
+function createApprovalSuspiciousContractAlert(suspiciousSpender, owner, asset) {
+  return Finding.fromObject({
+    name: "Suspicious contract got approval to spend assets",
+    description: `Suspicious contract ${scamSpender} got approval for ${owner}'s assets`,
+    alertId: "ICE-PHISHING-SUSPICIOUS-APPROVAL",
+    severity: FindingSeverity.Medium,
+    type: FindingType.Suspicious,
+    metadata: {
+      suspiciousSpender,
       owner,
     },
     addresses: [asset],
@@ -266,6 +294,23 @@ function createTransferScamAlert(msgSender, owner, receiver, asset, scamAddresse
     metadata: {
       scamAddresses,
       scamDomains,
+      msgSender,
+      owner,
+      receiver,
+    },
+    addresses: [asset],
+  });
+}
+
+function createTransferSuspiciousContractAlert(msgSender, owner, receiver, asset, suspiciousContract) {
+  return Finding.fromObject({
+    name: "Suspicious contract was involved in an asset transfer",
+    description: `${msgSender} transferred assets from ${owner} to ${receiver}`,
+    alertId: "ICE-PHISHING-SUSPICIOUS-TRANSFER",
+    severity: FindingSeverity.High,
+    type: FindingType.Suspicious,
+    metadata: {
+      suspiciousContract,
       msgSender,
       owner,
       receiver,
@@ -387,7 +432,9 @@ async function getEoaType(address, provider, blockNumber) {
 
 async function getContractType(address, chainId) {
   let result;
+
   result = await axios.get(getEtherscanContractUrl(address, chainId));
+
   if (result.data.message.startsWith("NOTOK") && result.data.result !== "Contract source code not verified") {
     console.log(`block explorer error occured; skipping check for ${address}`);
     return null;
@@ -460,6 +507,59 @@ async function getAddressType(address, scamAddresses, cachedAddresses, provider,
   return type;
 }
 
+async function getSuspiciousContracts(chainId, blockNumber, init) {
+  let contracts = [];
+  let startingCursor;
+  if (!init) {
+    const fortaResponse = await getAlerts({
+      botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+      chainId: chainId,
+      blockNumberRange: {
+        startBlockNumber: 0,
+        endBlockNumber: blockNumber,
+      },
+      first: 5000,
+    });
+    fortaResponse.alerts.forEach((alert) => {
+      contracts.push(alert.description.slice(0, -60));
+    });
+    startingCursor = fortaResponse.pageInfo.endCursor;
+    while (startingCursor.blockNumber > 0) {
+      const fortaResponse = await getAlerts({
+        botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+        chainId: chainId,
+        blockNumberRange: {
+          startBlockNumber: 0,
+          endBlockNumber: blockNumber,
+        },
+        first: 5000,
+        startingCursor: startingCursor,
+      });
+
+      fortaResponse.alerts.forEach((alert) => {
+        contracts.push(alert.description.slice(0, -60));
+      });
+
+      startingCursor = fortaResponse.pageInfo.endCursor;
+    }
+    return new Set(contracts);
+  } else {
+    const fortaResponse = await getAlerts({
+      botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+      chainId: chainId,
+      blockNumberRange: {
+        startBlockNumber: blockNumber - 1,
+        endBlockNumber: blockNumber,
+      },
+      first: 2000,
+    });
+    fortaResponse.alerts.forEach((alert) => {
+      contracts.push(alert.description.slice(0, -60));
+    });
+    return new Set(contracts);
+  }
+}
+
 const cachedBalances = new LRU({ max: 100_000 });
 
 async function getBalance(token, account, provider, blockNumber) {
@@ -501,12 +601,16 @@ module.exports = {
   createPermitInfoAlert,
   createPermitScamAlert,
   createPermitScamCreatorAlert,
+  createPermitSuspiciousContractAlert,
   createApprovalScamAlert,
   createApprovalScamCreatorAlert,
+  createApprovalSuspiciousContractAlert,
   createTransferScamAlert,
   createTransferScamCreatorAlert,
+  createTransferSuspiciousContractAlert,
   getAddressType,
   getContractCreator,
+  getSuspiciousContracts,
   getBalance,
   getERC1155Balance,
 };
