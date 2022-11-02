@@ -1,9 +1,10 @@
 const { FindingType, FindingSeverity, Finding, ethers } = require("forta-agent");
 const axios = require("axios");
-const { createAddress } = require("forta-agent-tools");
+const { createAddress, createChecksumAddress } = require("forta-agent-tools");
 const {
   provideHandleTransaction,
-  handleBlock,
+  provideHandleBlock,
+  provideInitialize,
   getApprovals,
   getERC20Approvals,
   getERC721Approvals,
@@ -11,8 +12,17 @@ const {
   getERC1155ApprovalsForAll,
   getPermissions,
   getTransfers,
+  getApprovalsInfoSeverity,
+  getERC20ApprovalsInfoSeverity,
+  getERC721ApprovalsInfoSeverity,
+  getERC721ApprovalsForAllInfoSeverity,
+  getERC1155ApprovalsForAllInfoSeverity,
+  getPermissionsInfoSeverity,
+  getTransfersLowSeverity,
   getCachedAddresses,
   resetLastTimestamp,
+  resetInit,
+  getSuspiciousContracts,
 } = require("./agent");
 
 const approveCountThreshold = 2;
@@ -21,6 +31,7 @@ const transferCountThreshold = 2;
 const timePeriodDays = 30;
 const nonceThreshold = 100;
 const maxAddressAlertsPerPeriod = 3;
+const verifiedContractTxsThreshold = 1;
 
 const spender = createAddress("0x01");
 const owner1 = createAddress("0x02");
@@ -38,6 +49,7 @@ jest.mock(
     transferCountThreshold,
     timePeriodDays,
     nonceThreshold,
+    verifiedContractTxsThreshold,
     maxAddressAlertsPerPeriod,
   }),
   { virtual: true }
@@ -344,15 +356,14 @@ describe("ice-phishing bot", () => {
   const mockProvider = {
     getCode: jest.fn(),
     getTransactionCount: jest.fn(),
+    getNetwork: jest.fn(),
   };
+  const mockGetSuspiciousContracts = jest.fn();
+  let handleBlock;
 
   describe("provideHandleTransaction", () => {
     let mockTxEvent = {};
     let handleTransaction;
-    beforeAll(() => {
-      const axiosResponse = { data: { status: "1" } };
-      axios.get.mockResolvedValue(axiosResponse);
-    });
 
     beforeEach(() => {
       mockTxEvent = {
@@ -367,7 +378,7 @@ describe("ice-phishing bot", () => {
       mockProvider.getCode.mockReset();
       mockProvider.getTransactionCount.mockReset();
       mockBalanceOf.mockReset();
-
+      axios.get.mockReset();
       Object.keys(getApprovals()).forEach((s) => delete getApprovals()[s]);
       Object.keys(getERC721Approvals()).forEach((s) => delete getERC721Approvals()[s]);
       Object.keys(getERC20Approvals()).forEach((s) => delete getERC20Approvals()[s]);
@@ -436,6 +447,83 @@ describe("ice-phishing bot", () => {
             msgSender: spender,
             owner: owner1,
             spender,
+          },
+          addresses: [asset],
+        }),
+      ]);
+      expect(mockTxEvent.filterLog).toHaveBeenCalledTimes(6);
+      expect(mockTxEvent.filterFunction).toHaveBeenCalledTimes(2);
+    });
+
+    it("should return a finding if a suspicious contract is involved in a permit function call", async () => {
+      mockProvider.getNetwork.mockReturnValueOnce({ chainId: "1" });
+      const initialize = provideInitialize(mockProvider);
+      await initialize();
+
+      // resetScamAddresses();
+      const mockBlockEvent = { block: { number: 876123 } };
+      handleBlock = provideHandleBlock(mockGetSuspiciousContracts);
+      mockGetSuspiciousContracts.mockResolvedValueOnce(new Set([createAddress("0xabcdabcd")]));
+      const axiosResponse = { data: [createAddress("0x5050")] };
+      axios.get.mockResolvedValueOnce(axiosResponse);
+
+      await handleBlock(mockBlockEvent);
+
+      const mockTxEvent = {
+        filterLog: jest.fn(),
+        filterFunction: jest.fn(),
+        hash: "hash2",
+        timestamp: 1230000,
+        from: createAddress("0x4567"),
+      };
+
+      const mockDAILikePermitFunctionCall = {
+        address: asset,
+        args: {
+          owner: owner1,
+          spender: createAddress("0xabcdabcd"),
+          expiry: 8359543534435,
+        },
+      };
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([mockDAILikePermitFunctionCall]);
+      mockTxEvent.filterLog.mockReturnValue([]);
+
+      mockProvider.getCode.mockResolvedValueOnce("0x32523523");
+      const axiosResponse2 = { data: { message: "totally ok", status: "1", result: [createAddress("0xbbbb")] } };
+      const axiosResponse3 = { data: { message: "totally ok", status: "1", result: [createAddress("0xaaaa")] } };
+      axios.get.mockResolvedValue(axiosResponse2).mockResolvedValueOnce(axiosResponse3);
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Suspicious contract was involved in an ERC-20 permission",
+          description: `${createAddress("0x4567")} gave permission to ${createAddress(
+            "0xabcdabcd"
+          )} for ${owner1}'s ERC-20 tokens`,
+          alertId: "ICE-PHISHING-ERC20-SUSPICIOUS-PERMIT",
+          severity: FindingSeverity.Medium,
+          type: FindingType.Suspicious,
+          metadata: {
+            msgSender: createAddress("0x4567"),
+            owner: owner1,
+            spender: createAddress("0xabcdabcd"),
+            suspiciousContract: createAddress("0xabcdabcd"),
+          },
+          addresses: [asset],
+        }),
+        Finding.fromObject({
+          name: "Account got permission for ERC-20 tokens",
+          description: `${createAddress("0x4567")} gave permission to ${createAddress(
+            "0xabcdabcd"
+          )} for ${owner1}'s ERC-20 tokens`,
+          alertId: "ICE-PHISHING-ERC20-PERMIT-INFO",
+          severity: FindingSeverity.Info,
+          type: FindingType.Info,
+          metadata: {
+            msgSender: createAddress("0x4567"),
+            owner: owner1,
+            spender: createAddress("0xabcdabcd"),
           },
           addresses: [asset],
         }),
@@ -565,6 +653,88 @@ describe("ice-phishing bot", () => {
       ]);
     });
 
+    it("should return findings if there is a high number of ERC721 ApprovalForAll events regarding a high nonce EOA", async () => {
+      const thisMockApprovalForAllEvent = [
+        {
+          address: asset,
+          name: "ApprovalForAll",
+          args: {
+            owner: createAddress("0xaacdcd"),
+            spender: createAddress("0xcdcd"),
+            approved: true,
+          },
+        },
+        {
+          address: asset,
+          name: "ApprovalForAll",
+          args: {
+            owner: createAddress("0xbbcdcd"),
+            spender: createAddress("0xcdcd"),
+            approved: true,
+          },
+        },
+        {
+          address: asset,
+          name: "ApprovalForAll",
+          args: {
+            owner: createAddress("0xcccdcd"),
+            spender: createAddress("0xcdcd"),
+            approved: true,
+          },
+        },
+      ];
+      for (let i = 0; i < 2; i++) {
+        const tempTxEvent = {
+          filterFunction: jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([]),
+          filterLog: jest
+            .fn()
+            .mockReturnValueOnce([]) // ERC20 approvals
+            .mockReturnValueOnce([]) // ERC721 approvals
+            .mockReturnValueOnce([thisMockApprovalForAllEvent[i]]) // ApprovalForAll
+            .mockReturnValueOnce([]) // ERC20 transfers
+            .mockReturnValueOnce([]) // ERC721 transfers
+            .mockReturnValueOnce([]), // ERC1155 transfers
+          hash: `hash${i}`,
+          timestamp: 1000 * i,
+          from: spender,
+        };
+        mockProvider.getCode.mockReturnValue("0x");
+        mockProvider.getTransactionCount.mockReturnValueOnce(1234454).mockReturnValueOnce(1234454);
+        await handleTransaction(tempTxEvent);
+      }
+
+      mockTxEvent.filterLog
+        .mockReturnValueOnce([]) // ERC20 approvals
+        .mockReturnValueOnce([]) // ERC721 approvals
+        .mockReturnValueOnce([thisMockApprovalForAllEvent[2]]) // ApprovalForAll
+        .mockReturnValueOnce([]) // ERC20 transfers
+        .mockReturnValueOnce([]) // ERC721 transfers
+        .mockReturnValueOnce([]); // ERC1155 transfers
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+      mockProvider.getCode.mockReturnValue("0x");
+      mockProvider.getTransactionCount.mockReturnValue(1234454);
+      expect(mockProvider.getCode).toHaveBeenCalledTimes(5);
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Account got approval for all ERC-721 tokens",
+          description: `${createAddress(
+            "0xcdcd"
+          )} obtained transfer approval for all ERC-721 tokens from ${createAddress("0xcccdcd")}`,
+          alertId: "ICE-PHISHING-ERC721-APPROVAL-FOR-ALL-INFO",
+          severity: FindingSeverity.Info,
+          type: FindingType.Info,
+          metadata: {
+            spender: createAddress("0xcdcd"),
+            owner: createAddress("0xcccdcd"),
+          },
+          addresses: [asset],
+        }),
+      ]);
+    });
+
     it("should return findings if there is a high number of ERC20 Approval events", async () => {
       for (let i = 0; i < 2; i++) {
         const tempTxEvent = {
@@ -660,6 +830,173 @@ describe("ice-phishing bot", () => {
           addresses: [asset],
         }),
       ]);
+    });
+
+    it("should return findings if there is a high number of ERC721 Approval events regarding a verified contract", async () => {
+      mockProvider.getNetwork.mockReturnValueOnce({ chainId: "1" });
+      const initialize = provideInitialize(mockProvider);
+      await initialize();
+      const spender = createAddress("0xeded");
+      const thisMockApprovalERC721Events = [
+        {
+          address: asset,
+          name: "Approval",
+          args: {
+            owner: owner1,
+            spender,
+            tokenId: ethers.BigNumber.from(5),
+          },
+        },
+        {
+          address: asset,
+          name: "Approval",
+          args: {
+            owner: owner2,
+            spender,
+            tokenId: ethers.BigNumber.from(5),
+          },
+        },
+        {
+          address: asset,
+          name: "Approval",
+          args: {
+            owner: owner3,
+            spender,
+            tokenId: ethers.BigNumber.from(5),
+          },
+        },
+      ];
+      for (let i = 0; i < 3; i++) {
+        const tempTxEvent = {
+          filterFunction: jest.fn().mockReturnValue([]).mockReturnValueOnce([]),
+          filterLog: jest
+            .fn()
+            .mockReturnValueOnce([]) // ERC20 approvals
+            .mockReturnValueOnce([thisMockApprovalERC721Events[i]]) // ERC721 approvals
+            .mockReturnValue([]) // ApprovalForAll
+            .mockReturnValueOnce([]) // ERC20 transfers
+            .mockReturnValueOnce([]) // ERC721 transfers
+            .mockReturnValueOnce([]), // ERC1155 transfers
+          hash: `hash${i}`,
+          timestamp: 1000 * i,
+          from: spender,
+        };
+        const axiosResponse = { data: { message: "completely Ok", status: "1", result: [] } };
+        const axiosResponse2 = {
+          data: { message: "completely ok", result: [{ contractCreator: createAddress("0x77777") }] },
+        };
+        axios.get
+          .mockResolvedValueOnce(axiosResponse)
+          .mockResolvedValueOnce(axiosResponse)
+          .mockResolvedValueOnce(axiosResponse2)
+          .mockResolvedValueOnce(axiosResponse2);
+
+        mockProvider.getCode.mockReturnValueOnce("0x").mockReturnValueOnce("0xa342a");
+        await handleTransaction(tempTxEvent);
+      }
+
+      mockTxEvent.filterLog
+        .mockReturnValueOnce([]) // ERC20 approvals
+        .mockReturnValueOnce([thisMockApprovalERC721Events[2]]) // ERC721 approvals
+        .mockReturnValueOnce([]) // ApprovalForAll
+        .mockReturnValueOnce([]) // ERC20 transfers
+        .mockReturnValueOnce([]) // ERC721 transfers
+        .mockReturnValueOnce([]); // ERC1155 transfers
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+
+      const findings = await handleTransaction(mockTxEvent);
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "High number of accounts granted approvals for ERC-721 tokens",
+          description: `${spender} obtained transfer approval for 1 ERC-721 tokens by 3 accounts over period of 1 days.`,
+          alertId: "ICE-PHISHING-HIGH-NUM-ERC721-APPROVALS-INFO",
+          severity: FindingSeverity.Info,
+          type: FindingType.Info,
+          metadata: {
+            firstTxHash: "hash0",
+            lastTxHash: "hash2",
+          },
+          addresses: [asset],
+        }),
+      ]);
+    });
+
+    it("should not return findings if there is a high number of ERC721 Approval events regarding a verified contract with high number of past transactions", async () => {
+      mockProvider.getNetwork.mockReturnValueOnce({ chainId: "1" });
+      const initialize = provideInitialize(mockProvider);
+      await initialize();
+      const spender = createAddress("0xabeded");
+      const thisMockApprovalERC721Events = [
+        {
+          address: asset,
+          name: "Approval",
+          args: {
+            owner: owner1,
+            spender,
+            tokenId: ethers.BigNumber.from(5),
+          },
+        },
+        {
+          address: asset,
+          name: "Approval",
+          args: {
+            owner: owner2,
+            spender,
+            tokenId: ethers.BigNumber.from(5),
+          },
+        },
+        {
+          address: asset,
+          name: "Approval",
+          args: {
+            owner: owner3,
+            spender,
+            tokenId: ethers.BigNumber.from(5),
+          },
+        },
+      ];
+      for (let i = 0; i < 3; i++) {
+        const tempTxEvent = {
+          filterFunction: jest.fn().mockReturnValue([]).mockReturnValueOnce([]),
+          filterLog: jest
+            .fn()
+            .mockReturnValueOnce([]) // ERC20 approvals
+            .mockReturnValueOnce([thisMockApprovalERC721Events[i]]) // ERC721 approvals
+            .mockReturnValue([]) // ApprovalForAll
+            .mockReturnValueOnce([]) // ERC20 transfers
+            .mockReturnValueOnce([]) // ERC721 transfers
+            .mockReturnValueOnce([]), // ERC1155 transfers
+          hash: `hash${i}`,
+          timestamp: 1000 * i,
+          from: spender,
+        };
+        const axiosResponse = { data: { message: "completely Ok", status: "1", result: ["result1", "result2"] } }; // high number of txs
+        const axiosResponse3 = {
+          data: { message: "completely ok", result: [{ contractCreator: createAddress("0x77777") }] },
+        };
+        axios.get
+          .mockResolvedValueOnce(axiosResponse)
+          .mockResolvedValueOnce(axiosResponse)
+          .mockResolvedValueOnce(axiosResponse3)
+          .mockResolvedValueOnce(axiosResponse3);
+
+        mockProvider.getCode.mockReturnValueOnce("0x").mockReturnValueOnce("0xa342a");
+        await handleTransaction(tempTxEvent);
+      }
+
+      mockTxEvent.filterLog
+        .mockReturnValueOnce([]) // ERC20 approvals
+        .mockReturnValueOnce([thisMockApprovalERC721Events[2]]) // ERC721 approvals
+        .mockReturnValueOnce([]) // ApprovalForAll
+        .mockReturnValueOnce([]) // ERC20 transfers
+        .mockReturnValueOnce([]) // ERC721 transfers
+        .mockReturnValueOnce([]); // ERC1155 transfers
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+
+      const findings = await handleTransaction(mockTxEvent);
+      expect(findings).toStrictEqual([]);
     });
 
     it("should return findings if there is a high number of ERC-20 Transfer events and the balance is completely drained", async () => {
@@ -1004,6 +1341,114 @@ describe("ice-phishing bot", () => {
       ]);
     });
 
+    it("should return a lower severity finding if there is a high number of ERC-1155 TransferBatch events when the balance is completely drained and the spender is a high nonce EOA", async () => {
+      // Create the Approval events first
+      const spender = createAddress("0x9831");
+      const mockApprovalForAllEvent = [
+        {
+          address: asset,
+          name: "ApprovalForAll",
+          args: {
+            owner: owner1,
+            spender,
+            approved: true,
+          },
+        },
+        {
+          address: asset,
+          name: "ApprovalForAll",
+          args: {
+            owner: owner2,
+            spender,
+            approved: true,
+          },
+        },
+        {
+          address: asset,
+          name: "ApprovalForAll",
+          args: {
+            owner: owner3,
+            spender,
+            approved: true,
+          },
+        },
+      ];
+      for (let i = 0; i < 3; i++) {
+        const tempTxEvent = {
+          filterFunction: jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([]),
+          filterLog: jest
+            .fn()
+            .mockReturnValueOnce([]) // ERC20 approvals
+            .mockReturnValueOnce([]) // ERC721 approvals
+            .mockReturnValueOnce([mockApprovalForAllEvent[i]]) // ApprovalForAll
+            .mockReturnValueOnce([]) // ERC20 transfers
+            .mockReturnValueOnce([]) // ERC721 transfers
+            .mockReturnValueOnce([]), // ERC1155 transfers
+          hash: `hash${i}`,
+          timestamp: 1000 * i,
+          from: spender,
+        };
+        mockProvider.getCode.mockReturnValue("0x");
+        mockProvider.getTransactionCount.mockReturnValue(123);
+        await handleTransaction(tempTxEvent);
+      }
+
+      for (let i = 0; i < 2; i++) {
+        const tempTxEvent = {
+          filterFunction: jest.fn().mockReturnValueOnce([]).mockReturnValueOnce([]),
+          filterLog: jest
+            .fn()
+            .mockReturnValueOnce([]) // ERC20 approvals
+            .mockReturnValueOnce([]) // ERC721 approvals
+            .mockReturnValueOnce([mockApprovalForAllEvent[i]]) // ApprovalForAll
+            .mockReturnValueOnce([]) // ERC20 transfers
+            .mockReturnValueOnce([]) // ERC721 transfers
+            .mockReturnValueOnce([mockTransferBatchEvents[i]]), // ERC1155 transfers
+          hash: `hash${i}`,
+          timestamp: 3000 + 1000 * i,
+          from: spender,
+        };
+
+        await handleTransaction(tempTxEvent);
+      }
+      const mockTxEvent = {
+        filterLog: jest.fn(),
+        filterFunction: jest.fn(),
+        hash: "hash2",
+        timestamp: 10000,
+        from: spender,
+      };
+
+      mockTxEvent.filterLog
+        .mockReturnValueOnce([]) // ERC20 approvals
+        .mockReturnValueOnce([]) // ERC721 approvals
+        .mockReturnValueOnce([mockApprovalForAllEvent[2]]) // ApprovalForAll
+        .mockReturnValueOnce([]) // ERC20 transfers
+        .mockReturnValueOnce([]) // ERC721 transfers
+        .mockReturnValueOnce([mockTransferBatchEvents[2]]); // ERC1155 transfers
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+      mockBalanceOf.mockResolvedValue(ethers.BigNumber.from(0));
+      //expect(mockProvider.getCode).toHaveBeenCalledTimes(9);
+
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Previously approved assets transferred",
+          description: `${spender} transferred 1 assets from 3 accounts over period of 1 days.`,
+          alertId: "ICE-PHISHING-HIGH-NUM-APPROVED-TRANSFERS-LOW",
+          severity: FindingSeverity.Low,
+          type: FindingType.Suspicious,
+          metadata: {
+            firstTxHash: "hash0",
+            lastTxHash: "hash2",
+          },
+          addresses: [asset],
+        }),
+      ]);
+    });
+
     it("should return findings if there's a transfer following an EIP-2612's permit function call", async () => {
       const tempTxEvent = {
         filterFunction: jest.fn().mockReturnValueOnce([mockPermitFunctionCall]).mockReturnValueOnce([]),
@@ -1105,6 +1550,8 @@ describe("ice-phishing bot", () => {
     });
 
     it("should return findings if a scam address has been given permission", async () => {
+      resetInit();
+
       const mockBlockEvent = { block: { timestamp: 1000 } };
       const axiosResponse = { data: [createAddress("0x5050")] };
       axios.get.mockResolvedValueOnce(axiosResponse);
@@ -1147,7 +1594,78 @@ describe("ice-phishing bot", () => {
       ]);
     });
 
+    it("should return findings if a contract deployed by a scam address has been given permission", async () => {
+      resetInit();
+      mockGetSuspiciousContracts.mockResolvedValueOnce(new Set());
+
+      const mockBlockEvent = { block: { timestamp: 1000 } };
+      const axiosResponse = { data: [createAddress("0x5050")] };
+      axios.get.mockResolvedValueOnce(axiosResponse);
+      await handleBlock(mockBlockEvent);
+
+      const mockPermitFunctionCall = {
+        address: asset,
+        args: {
+          owner: owner1,
+          spender: createAddress("0x23325050"),
+          deadline: 9359543534435,
+          value: ethers.BigNumber.from(210),
+        },
+      };
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([mockPermitFunctionCall]).mockReturnValueOnce([]);
+      mockTxEvent.filterLog.mockReturnValue([]);
+      mockProvider.getCode.mockReturnValueOnce("0xcccc");
+      const axiosResponse1 = { data: { message: "ok", status: "1", result: [] } };
+      axios.get
+        .mockResolvedValueOnce(axiosResponse1)
+        .mockResolvedValueOnce(axiosResponse1)
+        .mockResolvedValueOnce(axiosResponse1)
+        .mockResolvedValueOnce(axiosResponse1);
+
+      const axiosResponse2 = { data: { message: "ok", result: [{ contractCreator: createAddress("0x5050") }] } };
+      axios.get.mockResolvedValueOnce(axiosResponse2);
+      const axiosResponse3 = { data: { message: "NOTOKKKK" } };
+      axios.get.mockResolvedValueOnce(axiosResponse3);
+      const axiosResponse4 = { data: { "www.scamDomain.com": [createAddress("0x5050")] } };
+      axios.get.mockResolvedValueOnce(axiosResponse4);
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Contract created by a known scam address was involved in an ERC-20 permission",
+          description: `${spender} gave permission to ${createAddress("0x23325050")} for ${owner1}'s ERC-20 tokens`,
+          alertId: "ICE-PHISHING-ERC20-SCAM-CREATOR-PERMIT",
+          severity: FindingSeverity.High,
+          type: FindingType.Suspicious,
+          metadata: {
+            scamAddresses: [createAddress("0x5050")],
+            scamDomains: ["www.scamDomain.com"],
+            msgSender: spender,
+            spender: createAddress("0x23325050"),
+            owner: owner1,
+          },
+          addresses: [asset],
+        }),
+        Finding.fromObject({
+          name: "Account got permission for ERC-20 tokens",
+          description: `${spender} gave permission to ${createAddress("0x23325050")} for ${owner1}'s ERC-20 tokens`,
+          alertId: "ICE-PHISHING-ERC20-PERMIT-INFO",
+          severity: FindingSeverity.Info,
+          type: FindingType.Info,
+          metadata: {
+            msgSender: spender,
+            spender: createAddress("0x23325050"),
+            owner: owner1,
+          },
+          addresses: [asset],
+        }),
+      ]);
+    });
+
     it("should return findings if a scam address has been approved", async () => {
+      resetInit();
+
       const mockBlockEvent = { block: { timestamp: 1000 } };
       const axiosResponse = { data: [spender] };
       axios.get.mockResolvedValueOnce(axiosResponse);
@@ -1186,6 +1704,8 @@ describe("ice-phishing bot", () => {
     });
 
     it("should return findings if a scam address is involved in a transfer", async () => {
+      resetInit();
+
       const mockBlockEvent = { block: { timestamp: 1000 } };
       const axiosResponse = { data: [spender] };
       axios.get.mockResolvedValueOnce(axiosResponse);
@@ -1224,6 +1744,57 @@ describe("ice-phishing bot", () => {
         }),
       ]);
     });
+
+    it("should return findings if a suspicious contract is involved in a transfer", async () => {
+      resetInit();
+      const suspiciousSpender = createChecksumAddress("0xabcdabcd");
+      mockGetSuspiciousContracts.mockResolvedValueOnce(new Set([suspiciousSpender]));
+      const mockBlockEvent = { block: { timestamp: 1000 } };
+      const axiosResponse = { data: [] };
+      axios.get.mockResolvedValueOnce(axiosResponse);
+      await handleBlock(mockBlockEvent);
+      const mockTxEvent = {
+        filterLog: jest.fn(),
+        filterFunction: jest.fn(),
+        hash: "hash2",
+        timestamp: 10000,
+        from: suspiciousSpender,
+      };
+      mockTxEvent.filterLog
+        .mockReturnValueOnce([]) // ERC20 approvals
+        .mockReturnValueOnce([]) // ERC721 approvals
+        .mockReturnValueOnce([]) // ApprovalForAll
+        .mockReturnValueOnce([mockTransferEvents[0]]) // ERC20 transfers
+        .mockReturnValueOnce([]) // ERC721 transfers
+        .mockReturnValueOnce([]); // ERC1155 transfers
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+      mockProvider.getCode.mockReturnValue("0x333");
+
+      const axiosResponse2 = {
+        data: { message: "okkk", status: "1", result: [{ contractCreator: createAddress("0xaaaabbb") }] },
+      };
+      axios.get.mockResolvedValue(axiosResponse2);
+
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Suspicious contract was involved in an asset transfer",
+          description: `${suspiciousSpender} transferred assets from ${owner1} to ${mockTransferEvents[0].args.to}`,
+          alertId: "ICE-PHISHING-SUSPICIOUS-TRANSFER",
+          severity: FindingSeverity.High,
+          type: FindingType.Suspicious,
+          metadata: {
+            msgSender: suspiciousSpender,
+            owner: owner1,
+            receiver: mockTransferEvents[0].args.to,
+            suspiciousContract: suspiciousSpender,
+          },
+          addresses: [asset],
+        }),
+      ]);
+    });
   });
 
   describe("handleBlock", () => {
@@ -1231,8 +1802,8 @@ describe("ice-phishing bot", () => {
 
     beforeEach(() => {
       resetLastTimestamp();
-      const axiosResponse = { data: { status: "1" } };
-      axios.get.mockResolvedValue(axiosResponse);
+      resetInit();
+
       Object.keys(getApprovals()).forEach((s) => delete getApprovals()[s]);
       Object.keys(getERC20Approvals()).forEach((s) => delete getERC20Approvals()[s]);
       Object.keys(getERC721Approvals()).forEach((s) => delete getERC721Approvals()[s]);
@@ -1240,10 +1811,25 @@ describe("ice-phishing bot", () => {
       Object.keys(getERC1155ApprovalsForAll()).forEach((s) => delete getERC1155ApprovalsForAll()[s]);
       Object.keys(getPermissions()).forEach((s) => delete getPermissions()[s]);
       Object.keys(getTransfers()).forEach((s) => delete getTransfers()[s]);
+      Object.keys(getApprovalsInfoSeverity()).forEach((s) => delete getApprovalsInfoSeverity()[s]);
+      Object.keys(getERC20ApprovalsInfoSeverity()).forEach((s) => delete getERC20ApprovalsInfoSeverity()[s]);
+      Object.keys(getERC721ApprovalsInfoSeverity()).forEach((s) => delete getERC721ApprovalsInfoSeverity()[s]);
+      Object.keys(getERC721ApprovalsForAllInfoSeverity()).forEach(
+        (s) => delete getERC721ApprovalsForAllInfoSeverity()[s]
+      );
+      Object.keys(getERC1155ApprovalsForAllInfoSeverity()).forEach(
+        (s) => delete getERC1155ApprovalsForAllInfoSeverity()[s]
+      );
+      Object.keys(getPermissionsInfoSeverity()).forEach((s) => delete getPermissionsInfoSeverity()[s]);
+      Object.keys(getTransfersLowSeverity()).forEach((s) => delete getTransfersLowSeverity()[s]);
     });
 
     it("should do nothing if enough time has not passed", async () => {
+      const axiosResponse = { data: [createAddress("0x5050")] };
+      axios.get.mockResolvedValue(axiosResponse);
       const mockBlockEvent = { block: { timestamp: 1000 } };
+      mockGetSuspiciousContracts.mockResolvedValueOnce({});
+
       getApprovals()[spender] = [{ timestamp: 1000 }];
       getERC20Approvals()[spender] = [{ timestamp: 1000 }];
       getERC721Approvals()[spender] = [{ timestamp: 1000 }];
@@ -1251,6 +1837,13 @@ describe("ice-phishing bot", () => {
       getERC1155ApprovalsForAll()[spender] = [{ timestamp: 1000 }];
       getPermissions()[spender] = [{ deadline: 10 }];
       getTransfers()[spender] = [{ timestamp: 1000 }];
+      getApprovalsInfoSeverity()[spender] = [{ timestamp: 1000 }];
+      getERC20ApprovalsInfoSeverity()[spender] = [{ timestamp: 1000 }];
+      getERC721ApprovalsInfoSeverity()[spender] = [{ timestamp: 1000 }];
+      getERC721ApprovalsForAllInfoSeverity()[spender] = [{ timestamp: 1000 }];
+      getERC1155ApprovalsForAllInfoSeverity()[spender] = [{ timestamp: 1000 }];
+      getPermissionsInfoSeverity()[spender] = [{ deadline: 10 }];
+      getTransfersLowSeverity()[spender] = [{ timestamp: 1000 }];
       await handleBlock(mockBlockEvent);
 
       expect(Object.keys(getApprovals()).length).toStrictEqual(1);
@@ -1260,10 +1853,20 @@ describe("ice-phishing bot", () => {
       expect(Object.keys(getERC1155ApprovalsForAll()).length).toStrictEqual(1);
       expect(Object.keys(getPermissions()).length).toStrictEqual(1);
       expect(Object.keys(getTransfers()).length).toStrictEqual(1);
+      expect(Object.keys(getApprovalsInfoSeverity()).length).toStrictEqual(1);
+      expect(Object.keys(getERC20ApprovalsInfoSeverity()).length).toStrictEqual(1);
+      expect(Object.keys(getERC721ApprovalsInfoSeverity()).length).toStrictEqual(1);
+      expect(Object.keys(getERC721ApprovalsForAllInfoSeverity()).length).toStrictEqual(1);
+      expect(Object.keys(getERC1155ApprovalsForAllInfoSeverity()).length).toStrictEqual(1);
+      expect(Object.keys(getPermissionsInfoSeverity()).length).toStrictEqual(1);
+      expect(Object.keys(getTransfersLowSeverity()).length).toStrictEqual(1);
     });
 
     it("should not delete the entry if it was updated recently/permission deadline has not passed", async () => {
+      const axiosResponse = { data: [createAddress("0x5050")] };
+      axios.get.mockResolvedValue(axiosResponse);
       const mockBlockEvent = { block: { timestamp: timePeriod } };
+      mockGetSuspiciousContracts.mockResolvedValueOnce({});
       getApprovals()[spender] = [{ timestamp: timePeriod }];
       getERC20Approvals()[spender] = [{ timestamp: timePeriod }];
       getERC721Approvals()[spender] = [{ timestamp: timePeriod }];
@@ -1283,7 +1886,10 @@ describe("ice-phishing bot", () => {
     });
 
     it("should delete the entry if it was not updated recently/permission deadline has expired", async () => {
+      const axiosResponse = { data: [createAddress("0x5050")] };
+      axios.get.mockResolvedValue(axiosResponse);
       const mockBlockEvent = { block: { timestamp: timePeriod } };
+      mockGetSuspiciousContracts.mockResolvedValueOnce({});
       getApprovals()[spender] = [{ timestamp: 1000 }];
       getERC20Approvals()[spender] = [{ timestamp: 1000 }];
       getERC721Approvals()[spender] = [{ timestamp: 1000 }];
@@ -1300,6 +1906,20 @@ describe("ice-phishing bot", () => {
       expect(Object.keys(getERC1155ApprovalsForAll()).length).toStrictEqual(0);
       expect(Object.keys(getPermissions()).length).toStrictEqual(0);
       expect(Object.keys(getTransfers()).length).toStrictEqual(0);
+    });
+
+    it("should populate the suspicious contracts set correctly", async () => {
+      const axiosResponse = { data: [createAddress("0x5050")] };
+      axios.get.mockResolvedValue(axiosResponse);
+      const mockBlockEvent = { block: { number: 123 } };
+      mockGetSuspiciousContracts.mockResolvedValueOnce(new Set([createAddress("0x34234324")]));
+      await handleBlock(mockBlockEvent);
+      expect(getSuspiciousContracts().size).toStrictEqual(1);
+
+      const mockBlockEvent2 = { block: { number: 124 } };
+      mockGetSuspiciousContracts.mockResolvedValueOnce(new Set([createAddress("0x765756756")]));
+      await handleBlock(mockBlockEvent2);
+      expect(getSuspiciousContracts().size).toStrictEqual(2);
     });
   });
 });
