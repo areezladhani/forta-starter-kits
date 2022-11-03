@@ -514,28 +514,15 @@ async function getSuspiciousContracts(chainId, blockNumber, init) {
   let contracts = [];
   let startingCursor;
   if (!init) {
-    let fortaResponse;
-    try {
-      fortaResponse = await getAlerts({
-        botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
-        chainId: chainId,
-        blockNumberRange: {
-          startBlockNumber: blockNumber - 20000,
-          endBlockNumber: blockNumber,
-        },
-        first: 6000,
-      });
-    } catch {
-      fortaResponse = await getAlerts({
-        botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
-        chainId: chainId,
-        blockNumberRange: {
-          startBlockNumber: blockNumber - 20000,
-          endBlockNumber: blockNumber,
-        },
-        first: 6000,
-      });
-    }
+    const fortaResponse = await getAlerts({
+      botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+      chainId: chainId,
+      blockNumberRange: {
+        startBlockNumber: blockNumber - 20000,
+        endBlockNumber: blockNumber,
+      },
+      first: 6000,
+    });
 
     fortaResponse.alerts.forEach((alert) => {
       contracts.push({ address: alert.description.slice(-42), creator: alert.description.slice(0, 42) });
@@ -543,30 +530,17 @@ async function getSuspiciousContracts(chainId, blockNumber, init) {
 
     startingCursor = fortaResponse.pageInfo.endCursor;
     while (startingCursor.blockNumber > 0) {
-      let fortaResponse;
-      try {
-        fortaResponse = await getAlerts({
-          botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
-          chainId: chainId,
-          blockNumberRange: {
-            startBlockNumber: blockNumber - 20000,
-            endBlockNumber: blockNumber,
-          },
-          first: 1000,
-          startingCursor: startingCursor,
-        });
-      } catch {
-        fortaResponse = await getAlerts({
-          botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
-          chainId: chainId,
-          blockNumberRange: {
-            startBlockNumber: blockNumber - 20000,
-            endBlockNumber: blockNumber,
-          },
-          first: 1000,
-          startingCursor: startingCursor,
-        });
-      }
+      const fortaResponse = await getAlerts({
+        botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+        chainId: chainId,
+        blockNumberRange: {
+          startBlockNumber: blockNumber - 20000,
+          endBlockNumber: blockNumber,
+        },
+        first: 1000,
+        startingCursor: startingCursor,
+      });
+
       fortaResponse.alerts.forEach((alert) => {
         contracts.push({ address: alert.description.slice(-42), creator: alert.description.slice(0, 42) });
       });
@@ -581,28 +555,16 @@ async function getSuspiciousContracts(chainId, blockNumber, init) {
     });
     return new Set(contracts);
   } else {
-    let fortaResponse;
-    try {
-      fortaResponse = await getAlerts({
-        botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
-        chainId: chainId,
-        blockNumberRange: {
-          startBlockNumber: blockNumber - 1,
-          endBlockNumber: blockNumber,
-        },
-        first: 1000,
-      });
-    } catch {
-      fortaResponse = await getAlerts({
-        botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
-        chainId: chainId,
-        blockNumberRange: {
-          startBlockNumber: blockNumber - 1,
-          endBlockNumber: blockNumber,
-        },
-        first: 1000,
-      });
-    }
+    const fortaResponse = await getAlerts({
+      botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+      chainId: chainId,
+      blockNumberRange: {
+        startBlockNumber: blockNumber - 1,
+        endBlockNumber: blockNumber,
+      },
+      first: 1000,
+    });
+
     fortaResponse.alerts.forEach((alert) => {
       contracts.push({ address: alert.description.slice(-42), creator: alert.description.slice(0, 42) });
     });
