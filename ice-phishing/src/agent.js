@@ -133,10 +133,10 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
 
       if (txFrom !== owner) {
         if (
-          (spenderType === AddressType.UnverifiedContract ||
+          (spenderType === AddressType.LowNumTxsUnverifiedContract ||
             spenderType === AddressType.EoaWithLowNonce ||
             spenderType === AddressType.ScamAddress) &&
-          (msgSenderType === AddressType.UnverifiedContract ||
+          (msgSenderType === AddressType.LowNumTxsUnverifiedContract ||
             msgSenderType === AddressType.EoaWithLowNonce ||
             msgSenderType === AddressType.ScamAddress)
         ) {
@@ -167,14 +167,14 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
             findings.push(createPermitScamAlert(txFrom, spender, owner, asset, _scamAddresses, scamDomains));
           }
         } else if (
-          (spenderType === AddressType.VerifiedContract || spenderType === AddressType.EoaWithHighNonce) &&
-          (msgSenderType === AddressType.VerifiedContract || msgSenderType === AddressType.EoaWithHighNonce)
+          (spenderType === AddressType.LowNumTxsVerifiedContract || spenderType === AddressType.EoaWithHighNonce) &&
+          (msgSenderType === AddressType.LowNumTxsVerifiedContract || msgSenderType === AddressType.EoaWithHighNonce)
         ) {
           let spenderContractCreator,
             spenderContractCreatorType,
             msgSenderContractCreator,
             msgSenderContractCreatorType;
-          if (spenderType === AddressType.VerifiedContract) {
+          if (spenderType === AddressType.LowNumTxsVerifiedContract) {
             suspiciousContracts.forEach((contract) => {
               if (contract.address === spender) {
                 findings.push(createPermitSuspiciousContractAlert(txFrom, spender, owner, asset, contract));
@@ -193,7 +193,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
               );
             }
           }
-          if (msgSenderType === AddressType.VerifiedContract) {
+          if (msgSenderType === AddressType.LowNumTxsVerifiedContract) {
             suspiciousContracts.forEach((contract) => {
               if (contract.address === txFrom) {
                 findings.push(createPermitSuspiciousContractAlert(txFrom, spender, owner, asset, contract));
@@ -280,16 +280,15 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         true
       );
       if (
-        ownerType === AddressType.UnverifiedContract ||
+        ownerType === AddressType.LowNumTxsUnverifiedContract ||
         ownerType === AddressType.HighNumTxsUnverifiedContract ||
-        ownerType === AddressType.VerifiedContract ||
+        ownerType === AddressType.LowNumTxsVerifiedContract ||
         ownerType === AddressType.HighNumTxsVerifiedContract
       )
         return;
 
       // Skip if the spender
-      // has high nonce (probably CEX)
-      // is verified contract
+      // is verified contract with high number of txs
       // is unverified contract with high number of txs
       // or is ignored address
       const spenderType = await getAddressType(
@@ -309,14 +308,17 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         spenderType.startsWith("Ignored")
       ) {
         return;
-      } else if (spenderType === AddressType.EoaWithHighNonce || spenderType === AddressType.VerifiedContract) {
+      } else if (
+        spenderType === AddressType.EoaWithHighNonce ||
+        spenderType === AddressType.LowNumTxsVerifiedContract
+      ) {
         // Initialize the approvals array for the spender if it doesn't exist
         if (!approvalsInfoSeverity[spender]) approvalsInfoSeverity[spender] = [];
       } else {
         if (!approvals[spender]) approvals[spender] = [];
       }
 
-      if (spenderType === AddressType.EoaWithHighNonce || spenderType === AddressType.VerifiedContract) {
+      if (spenderType === AddressType.EoaWithHighNonce || spenderType === AddressType.LowNumTxsVerifiedContract) {
         if (isApprovalForAll) {
           const assetCode = await provider.getCode(asset);
           if (assetCode.includes(safeBatchTransferFrom1155Sig)) {
@@ -432,7 +434,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         if (!_approvals[spender]) continue;
         _approvals[spender].filter((a) => timestamp - a.timestamp < TIME_PERIOD);
       }
-      if (spenderType === AddressType.ScamAddress || spenderType === AddressType.VerifiedContract) {
+      if (spenderType === AddressType.ScamAddress || spenderType === AddressType.LowNumTxsVerifiedContract) {
         const scamSnifferDB = await axios.get(
           "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
         );
@@ -471,7 +473,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         cachedAddresses.set(spender, newType);
       }
 
-      if (spenderType === AddressType.EoaWithHighNonce || spenderType === AddressType.VerifiedContract) {
+      if (spenderType === AddressType.EoaWithHighNonce || spenderType === AddressType.LowNumTxsVerifiedContract) {
         if (approvalsERC20InfoSeverity[spender] && approvalsERC20InfoSeverity[spender].length > approveCountThreshold) {
           findings.push(createHighNumApprovalsInfoAlertERC20(spender, approvalsInfoSeverity[spender]));
         }
@@ -554,9 +556,9 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         findings.push(createTransferScamAlert(txFrom, from, to, asset, _scamAddresses, scamDomains));
       }
 
-      if (txFromType === AddressType.VerifiedContract || toType === AddressType.VerifiedContract) {
+      if (txFromType === AddressType.LowNumTxsVerifiedContract || toType === AddressType.LowNumTxsVerifiedContract) {
         let txFromContractCreator, txFromContractCreatorType, toContractCreator, toContractCreatorType;
-        if (txFromType === AddressType.VerifiedContract) {
+        if (txFromType === AddressType.LowNumTxsVerifiedContract) {
           suspiciousContracts.forEach((contract) => {
             if (contract.address === txFrom) {
               findings.push(createTransferSuspiciousContractAlert(txFrom, from, to, asset, contract));
@@ -575,7 +577,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
             );
           }
         }
-        if (toType === AddressType.VerifiedContract) {
+        if (toType === AddressType.LowNumTxsVerifiedContract) {
           suspiciousContracts.forEach((contract) => {
             if (contract.address === to) {
               findings.push(createTransferSuspiciousContractAlert(txFrom, from, to, asset, contract));
@@ -927,7 +929,7 @@ const provideHandleBlock = (getSuspiciousContracts) => async (blockEvent) => {
       }
 
       if (type === AddressType.IgnoredContract) {
-        cachedAddresses.set(address, AddressType.UnverifiedContract);
+        cachedAddresses.set(address, AddressType.LowNumTxsUnverifiedContract);
       }
     });
 

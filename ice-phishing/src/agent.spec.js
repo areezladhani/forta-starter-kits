@@ -1431,7 +1431,7 @@ describe("ice-phishing bot", () => {
 
       mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
       mockBalanceOf.mockResolvedValue(ethers.BigNumber.from(0));
-      //expect(mockProvider.getCode).toHaveBeenCalledTimes(9);
+      expect(mockProvider.getCode).toHaveBeenCalledTimes(9);
 
       const findings = await handleTransaction(mockTxEvent);
 

@@ -453,10 +453,10 @@ async function getContractType(address, chainId) {
 
   if (isVerified) {
     const hasHighNumberOfTotalTxs = result.data.result.length > verifiedContractTxsThreshold;
-    return hasHighNumberOfTotalTxs ? AddressType.HighNumTxsVerifiedContract : AddressType.VerifiedContract;
+    return hasHighNumberOfTotalTxs ? AddressType.HighNumTxsVerifiedContract : AddressType.LowNumTxsVerifiedContract;
   } else {
     const hasHighNumberOfTotalTxs = result.data.result.length > contractTxsThreshold;
-    return hasHighNumberOfTotalTxs ? AddressType.HighNumTxsUnverifiedContract : AddressType.UnverifiedContract;
+    return hasHighNumberOfTotalTxs ? AddressType.HighNumTxsUnverifiedContract : AddressType.LowNumTxsUnverifiedContract;
   }
 }
 
@@ -499,7 +499,7 @@ async function getAddressType(address, scamAddresses, cachedAddresses, provider,
   const isEoa = code === "0x";
 
   // Skip etherscan call and directly return unverified if checking for the owner
-  if (isOwner && !isEoa) return AddressType.UnverifiedContract;
+  if (isOwner && !isEoa) return AddressType.LowNumTxsUnverifiedContract;
 
   const getTypeFn = isEoa
     ? async () => getEoaType(address, provider, blockNumber)
