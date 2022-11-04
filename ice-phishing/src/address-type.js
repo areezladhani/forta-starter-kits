@@ -1,9 +1,10 @@
 module.exports = {
   EoaWithLowNonce: "EoaWithLowNonce",
   EoaWithHighNonce: "EoaWithHighNonce",
-  UnverifiedContract: "UnverifiedContract",
+  LowNumTxsUnverifiedContract: "LowNumTxsUnverifiedContract",
   HighNumTxsUnverifiedContract: "HighNumTxsUnverifiedContract",
-  VerifiedContract: "VerifiedContract",
+  LowNumTxsVerifiedContract: "LowNumTxsVerifiedContract",
+  HighNumTxsVerifiedContract: "HighNumTxsVerifiedContract",
   IgnoredEoa: "IgnoredEoa",
   IgnoredContract: "IgnoredContract",
   ScamAddress: "ScamAddress",
