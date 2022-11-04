@@ -155,7 +155,9 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
               "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
             );
             const scamDomains = Object.keys(scamSnifferDB.data).filter(
-              (key) => scamSnifferDB.data[key].includes(txFrom) || scamSnifferDB.data[key].includes(spender)
+              (key) =>
+                scamSnifferDB.data[key].includes(txFrom.toLowerCase()) ||
+                scamSnifferDB.data[key].includes(spender.toLowerCase())
             );
             let _scamAddresses = [];
             if (spenderType === AddressType.ScamAddress) {
@@ -222,8 +224,8 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
             );
             const scamDomains = Object.keys(scamSnifferDB.data).filter(
               (key) =>
-                scamSnifferDB.data[key].includes(msgSenderContractCreator) ||
-                scamSnifferDB.data[key].includes(spenderContractCreator)
+                scamSnifferDB.data[key].includes(msgSenderContractCreator.toLowerCase()) ||
+                scamSnifferDB.data[key].includes(spenderContractCreator.toLowerCase())
             );
             let _scamAddresses = [];
             if (spenderContractCreatorType === AddressType.ScamAddress) {
@@ -440,7 +442,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         );
         if (spenderType === AddressType.ScamAddress) {
           const scamDomains = Object.keys(scamSnifferDB.data).filter((key) =>
-            scamSnifferDB.data[key].includes(spender)
+            scamSnifferDB.data[key].includes(spender.toLowerCase())
           );
           findings.push(createApprovalScamAlert(spender, owner, asset, scamDomains));
         } else {
@@ -453,7 +455,7 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
           const spenderContractCreator = await getContractCreator(spender, chainId);
           if (spenderContractCreator) {
             const scamDomains = Object.keys(scamSnifferDB.data).filter((key) =>
-              scamSnifferDB.data[key].includes(spenderContractCreator)
+              scamSnifferDB.data[key].includes(spenderContractCreator.toLowerCase())
             );
             if (scamDomains.length > 0) {
               findings.push(createApprovalScamCreatorAlert(spender, spenderContractCreator, owner, asset, scamDomains));
@@ -544,7 +546,8 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
           "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
         );
         const scamDomains = Object.keys(scamSnifferDB.data).filter(
-          (key) => scamSnifferDB.data[key].includes(txFrom) || scamSnifferDB.data[key].includes(to)
+          (key) =>
+            scamSnifferDB.data[key].includes(txFrom.toLowerCase()) || scamSnifferDB.data[key].includes(to.toLowerCase())
         );
         let _scamAddresses = [];
         if (toType === AddressType.ScamAddress) {
@@ -605,8 +608,8 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
           );
           const scamDomains = Object.keys(scamSnifferDB.data).filter(
             (key) =>
-              scamSnifferDB.data[key].includes(txFromContractCreator) ||
-              scamSnifferDB.data[key].includes(toContractCreator)
+              scamSnifferDB.data[key].includes(txFromContractCreator.toLowerCase()) ||
+              scamSnifferDB.data[key].includes(toContractCreator.toLowerCase())
           );
           let _scamAddresses = [];
           if (toContractCreatorType === AddressType.ScamAddress) {

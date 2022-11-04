@@ -1627,10 +1627,13 @@ describe("ice-phishing bot", () => {
 
       const axiosResponse2 = { data: { message: "ok", result: [{ contractCreator: createAddress("0x5050") }] } };
       axios.get.mockResolvedValueOnce(axiosResponse2);
-      const axiosResponse3 = { data: { message: "NOTOKKKK" } };
+      const axiosResponse3 = { data: { message: "ok", result: [{ contractCreator: createAddress("0x215050") }] } };
       axios.get.mockResolvedValueOnce(axiosResponse3);
-      const axiosResponse4 = { data: { "www.scamDomain.com": [createAddress("0x5050")] } };
+      const axiosResponse4 = { data: { message: "NOTOKKK" } };
       axios.get.mockResolvedValueOnce(axiosResponse4);
+      const axiosResponse5 = { data: { "www.scamDomain.com": [createAddress("0x5050")] } };
+      axios.get.mockResolvedValueOnce(axiosResponse5);
+
       const findings = await handleTransaction(mockTxEvent);
 
       expect(findings).toStrictEqual([
