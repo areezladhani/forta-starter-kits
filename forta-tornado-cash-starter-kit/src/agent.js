@@ -21,10 +21,10 @@ let fundedByTornadoCash = new Set([
 ]);
 
 //Load all properties by chainId
-const initialize = async () => {
+const provideInitialize = (ethersProvider) => async () => {
   const { chainId } = await ethersProvider.getNetwork();
-  tornadoCashAddresses = await getContractsByChainId(chainId);
-  fundedByTornadoCash = await getInitialFundedByTornadoCash(chainId);
+  tornadoCashAddresses = getContractsByChainId(chainId);
+  fundedByTornadoCash = getInitialFundedByTornadoCash(chainId);
 };
 
 function provideHandleTranscation(ethersProvider) {
@@ -43,6 +43,10 @@ function provideHandleTranscation(ethersProvider) {
 
       fundedByTornadoCash.add(to.toLowerCase());
     });
+
+    if (tornadoCashAddresses.includes(txEvent.to) || !txEvent.to) {
+      return findings;
+    }
 
     const hasInteractedWith = fundedByTornadoCash.has(txEvent.from);
     if (hasInteractedWith) {
@@ -65,7 +69,8 @@ function provideHandleTranscation(ethersProvider) {
 }
 
 module.exports = {
-  initialize,
+  initialize: provideInitialize(ethersProvider),
+  provideInitialize,
   handleTransaction: provideHandleTranscation(ethersProvider),
   provideHandleTranscation,
 };

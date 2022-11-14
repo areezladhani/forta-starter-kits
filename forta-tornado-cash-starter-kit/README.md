@@ -2,7 +2,7 @@
 
 ## Description
 
-This bot detects when an account that was funded by Tornado Cash interacts with any contract
+This bot detects when an account that was funded by Tornado Cash interacts with any (non Tornado Cash) contract
 
 ## Supported Chains
 
