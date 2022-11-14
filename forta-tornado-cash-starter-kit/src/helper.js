@@ -48,8 +48,7 @@ const tornadoCashAddressesARBITRUM = [
 ];
 
 module.exports = {
-  eventABI:
-    "event Withdrawal(address to, bytes32 nullifierHash, address indexed relayer, uint256 fee)",
+  eventABI: "event Withdrawal(address to, bytes32 nullifierHash, address indexed relayer, uint256 fee)",
   addressLimit: 100000,
   getContractsByChainId: (chainId) => {
     switch (chainId) {

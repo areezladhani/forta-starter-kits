@@ -1,24 +1,12 @@
-const {
-  Finding,
-  FindingSeverity,
-  FindingType,
-  getEthersProvider,
-} = require("forta-agent");
-const {
-  getContractsByChainId,
-  getInitialFundedByTornadoCash,
-  eventABI,
-  addressLimit,
-} = require("./helper");
+const { Finding, FindingSeverity, FindingType, getEthersProvider } = require("forta-agent");
+const { getContractsByChainId, getInitialFundedByTornadoCash, eventABI, addressLimit } = require("./helper");
 
 const ethersProvider = getEthersProvider();
 
 let tornadoCashAddresses;
 
 //Adding one placeholder address for testing purposes
-let fundedByTornadoCash = new Set([
-  "0x58f970044273705ab3b0e87828e71123a7f95c9d",
-]);
+let fundedByTornadoCash = new Set(["0x58f970044273705ab3b0e87828e71123a7f95c9d"]);
 
 //Load all properties by chainId
 const provideInitialize = (ethersProvider) => async () => {
