@@ -3,7 +3,7 @@ const { default: axios } = require("axios");
 const LRU = require("lru-cache");
 const { nonceThreshold, contractTxsThreshold, verifiedContractTxsThreshold } = require("../bot-config.json");
 const { etherscanApis } = require("./config");
-const { SUSPICIOUS_CONTRACT_CREATION_BOT_ID, ERC_20_721_INTERFACE, ERC_1155_INTERFACE } = require("./utils");
+const { MALICIOUS_SMART_CONTRACT_ML_BOT_V2_ID, ERC_20_721_INTERFACE, ERC_1155_INTERFACE } = require("./utils");
 const AddressType = require("./address-type");
 
 // Computes the data needed for an alert
@@ -515,7 +515,7 @@ async function getSuspiciousContracts(chainId, blockNumber, init) {
   let startingCursor;
   if (!init) {
     const fortaResponse = await getAlerts({
-      botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+      botIds: [MALICIOUS_SMART_CONTRACT_ML_BOT_V2_ID],
       chainId: chainId,
       blockNumberRange: {
         startBlockNumber: blockNumber - 20000,
@@ -531,7 +531,7 @@ async function getSuspiciousContracts(chainId, blockNumber, init) {
     startingCursor = fortaResponse.pageInfo.endCursor;
     while (startingCursor.blockNumber > 0) {
       const fortaResponse = await getAlerts({
-        botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+        botIds: [MALICIOUS_SMART_CONTRACT_ML_BOT_V2_ID],
         chainId: chainId,
         blockNumberRange: {
           startBlockNumber: blockNumber - 20000,
@@ -556,7 +556,7 @@ async function getSuspiciousContracts(chainId, blockNumber, init) {
     return new Set(contracts);
   } else {
     const fortaResponse = await getAlerts({
-      botIds: [SUSPICIOUS_CONTRACT_CREATION_BOT_ID],
+      botIds: [MALICIOUS_SMART_CONTRACT_ML_BOT_V2_ID],
       chainId: chainId,
       blockNumberRange: {
         startBlockNumber: blockNumber - 1,
