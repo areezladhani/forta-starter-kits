@@ -4,7 +4,7 @@ const { timePeriodDays } = require("../bot-config.json");
 const ONE_DAY = 24 * 60 * 60;
 const TIME_PERIOD = timePeriodDays * ONE_DAY;
 const ADDRESS_ZERO = ethers.constants.AddressZero;
-const SUSPICIOUS_CONTRACT_CREATION_BOT_ID = "0x457aa09ca38d60410c8ffa1761f535f23959195a56c9b82e0207801e86b34d99";
+const MALICIOUS_SMART_CONTRACT_ML_BOT_V2_ID = "0x0b241032ca430d9c02eaa6a52d217bbff046f0d1b3f3d2aa928e42a97150ec91";
 const safeBatchTransferFrom1155Sig = "2eb2c2d6";
 
 const permitFunctionABI =
@@ -35,7 +35,7 @@ const ERC_1155_INTERFACE = new ethers.utils.Interface(ERC_1155_ABI);
 module.exports = {
   TIME_PERIOD,
   ADDRESS_ZERO,
-  SUSPICIOUS_CONTRACT_CREATION_BOT_ID,
+  MALICIOUS_SMART_CONTRACT_ML_BOT_V2_ID,
   safeBatchTransferFrom1155Sig,
   permitFunctionABI,
   daiPermitFunctionABI,
