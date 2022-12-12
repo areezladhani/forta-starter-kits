@@ -322,7 +322,7 @@ function createTransferSuspiciousContractAlert(msgSender, owner, receiver, asset
   });
 }
 
-function createTransferScamCreatorAlert(msgSender, owner, receiver, asset, scamAddresses, scamDomains) {
+function createTransferScamCreatorAlert(msgSender, owner, receiver, asset, scamAddress, scamDomains) {
   return Finding.fromObject({
     name: "Contract, created by a known scam address, was involved in an asset transfer",
     description: `${msgSender} transferred assets from ${owner} to ${receiver}`,
@@ -330,7 +330,7 @@ function createTransferScamCreatorAlert(msgSender, owner, receiver, asset, scamA
     severity: FindingSeverity.Critical,
     type: FindingType.Exploit,
     metadata: {
-      scamAddresses,
+      scamAddress,
       scamDomains,
       msgSender,
       owner,

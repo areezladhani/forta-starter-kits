@@ -531,66 +531,36 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         findings.push(createTransferScamAlert(txFrom, from, to, asset, _scamAddresses, scamDomains));
       }
 
-      if (txFromType === AddressType.LowNumTxsVerifiedContract || toType === AddressType.LowNumTxsVerifiedContract) {
-        let txFromContractCreator, txFromContractCreatorType, toContractCreator, toContractCreatorType;
-        if (txFromType === AddressType.LowNumTxsVerifiedContract) {
-          suspiciousContracts.forEach((contract) => {
-            if (contract.address === txFrom) {
-              findings.push(createTransferSuspiciousContractAlert(txFrom, from, to, asset, contract));
-            }
-          });
-          txFromContractCreator = await getContractCreator(txFrom, chainId);
-          if (txFromContractCreator) {
-            txFromContractCreatorType = await getAddressType(
-              txFromContractCreator,
-              scamAddresses,
-              cachedAddresses,
-              provider,
-              blockNumber,
-              chainId,
-              false
-            );
+      if (toType === AddressType.LowNumTxsVerifiedContract || toType === AddressType.LowNumTxsUnverifiedContract) {
+        let toContractCreator, toContractCreatorType;
+        suspiciousContracts.forEach((contract) => {
+          if (contract.address === to) {
+            findings.push(createTransferSuspiciousContractAlert(txFrom, from, to, asset, contract));
           }
+        });
+        toContractCreator = await getContractCreator(to, chainId);
+        if (toContractCreator) {
+          toContractCreatorType = await getAddressType(
+            toContractCreator,
+            scamAddresses,
+            cachedAddresses,
+            provider,
+            blockNumber,
+            chainId,
+            false
+          );
         }
-        if (toType === AddressType.LowNumTxsVerifiedContract) {
-          suspiciousContracts.forEach((contract) => {
-            if (contract.address === to) {
-              findings.push(createTransferSuspiciousContractAlert(txFrom, from, to, asset, contract));
-            }
-          });
-          toContractCreator = await getContractCreator(to, chainId);
-          if (toContractCreator) {
-            toContractCreatorType = await getAddressType(
-              toContractCreator,
-              scamAddresses,
-              cachedAddresses,
-              provider,
-              blockNumber,
-              chainId,
-              false
-            );
-          }
-        }
-        if (
-          txFromContractCreatorType === AddressType.ScamAddress ||
-          toContractCreatorType === AddressType.ScamAddress
-        ) {
+
+        if (toContractCreatorType === AddressType.ScamAddress) {
           const scamSnifferDB = await axios.get(
             "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
           );
-          const scamDomains = Object.keys(scamSnifferDB.data).filter(
-            (key) =>
-              scamSnifferDB.data[key].includes(txFromContractCreator.toLowerCase()) ||
-              scamSnifferDB.data[key].includes(toContractCreator.toLowerCase())
+          const scamDomains = Object.keys(scamSnifferDB.data).filter((key) =>
+            scamSnifferDB.data[key].includes(toContractCreator.toLowerCase())
           );
-          let _scamAddresses = [];
-          if (toContractCreatorType === AddressType.ScamAddress) {
-            _scamAddresses.push(toContractCreator);
+          if (scamDomains.length > 0) {
+            findings.push(createTransferScamCreatorAlert(txFrom, from, to, asset, toContractCreator, scamDomains));
           }
-          if (txFromContractCreatorType === AddressType.ScamAddress) {
-            _scamAddresses.push(txFromContractCreator);
-          }
-          findings.push(createTransferScamCreatorAlert(txFrom, from, to, asset, _scamAddresses, scamDomains));
         }
       }
 
