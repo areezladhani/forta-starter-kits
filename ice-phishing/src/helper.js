@@ -201,7 +201,7 @@ function createPermitScamAlert(msgSender, spender, owner, asset, scamAddresses, 
   });
 }
 
-function createPermitScamCreatorAlert(msgSender, spender, owner, asset, scamAddresses, scamDomains) {
+function createPermitScamCreatorAlert(msgSender, spender, owner, asset, scamAddress, scamDomains) {
   return Finding.fromObject({
     name: "Contract created by a known scam address was involved in an ERC-20 permission",
     description: `${msgSender} gave permission to ${spender} for ${owner}'s ERC-20 tokens`,
@@ -209,7 +209,7 @@ function createPermitScamCreatorAlert(msgSender, spender, owner, asset, scamAddr
     severity: FindingSeverity.High,
     type: FindingType.Suspicious,
     metadata: {
-      scamAddresses,
+      scamAddress,
       scamDomains,
       msgSender,
       spender,
