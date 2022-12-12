@@ -221,7 +221,7 @@ function createPermitScamCreatorAlert(msgSender, spender, owner, asset, scamAddr
 
 function createPermitSuspiciousContractAlert(msgSender, spender, owner, asset, suspiciousContract) {
   return Finding.fromObject({
-    name: "Suspicious contract was involved in an ERC-20 permission",
+    name: "Suspicious contract (creator) was involved in an ERC-20 permission",
     description: `${msgSender} gave permission to ${spender} for ${owner}'s ERC-20 tokens`,
     alertId: "ICE-PHISHING-ERC20-SUSPICIOUS-PERMIT",
     severity: FindingSeverity.Medium,
@@ -253,15 +253,16 @@ function createApprovalScamAlert(scamSpender, owner, asset, scamDomains) {
   });
 }
 
-function createApprovalSuspiciousContractAlert(suspiciousSpender, owner, asset, creator) {
+function createApprovalSuspiciousContractAlert(suspiciousSpender, owner, asset, contract, creator) {
   return Finding.fromObject({
-    name: "Suspicious contract got approval to spend assets",
-    description: `Suspicious contract ${scamSpender} got approval for ${owner}'s assets`,
+    name: "Suspicious contract (creator) got approval to spend assets",
+    description: `Suspicious address ${suspiciousSpender} got approval for ${owner}'s assets`,
     alertId: "ICE-PHISHING-SUSPICIOUS-APPROVAL",
     severity: FindingSeverity.Medium,
     type: FindingType.Suspicious,
     metadata: {
       suspiciousSpender,
+      suspiciousContract: contract,
       suspiciousContractCreator: creator,
       owner,
     },
