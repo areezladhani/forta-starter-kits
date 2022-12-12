@@ -1601,7 +1601,7 @@ describe("ice-phishing bot", () => {
       mockGetSuspiciousContracts.mockResolvedValueOnce(new Set());
 
       const mockBlockEvent = { block: { timestamp: 1000 } };
-      const axiosResponse = { data: [createAddress("0x5050")] };
+      const axiosResponse = { data: [createAddress("0x215050")] };
       axios.get.mockResolvedValueOnce(axiosResponse);
       await handleBlock(mockBlockEvent);
 
@@ -1625,14 +1625,11 @@ describe("ice-phishing bot", () => {
         .mockResolvedValueOnce(axiosResponse1)
         .mockResolvedValueOnce(axiosResponse1);
 
-      const axiosResponse2 = { data: { message: "ok", result: [{ contractCreator: createAddress("0x5050") }] } };
+      const axiosResponse2 = { data: { message: "ok", result: [{ contractCreator: createAddress("0x215050") }] } };
       axios.get.mockResolvedValueOnce(axiosResponse2);
-      const axiosResponse3 = { data: { message: "ok", result: [{ contractCreator: createAddress("0x215050") }] } };
+
+      const axiosResponse3 = { data: { "www.scamDomain.com": [createAddress("0x215050")] } };
       axios.get.mockResolvedValueOnce(axiosResponse3);
-      const axiosResponse4 = { data: { message: "NOTOKKK" } };
-      axios.get.mockResolvedValueOnce(axiosResponse4);
-      const axiosResponse5 = { data: { "www.scamDomain.com": [createAddress("0x5050")] } };
-      axios.get.mockResolvedValueOnce(axiosResponse5);
 
       const findings = await handleTransaction(mockTxEvent);
 
@@ -1644,7 +1641,7 @@ describe("ice-phishing bot", () => {
           severity: FindingSeverity.High,
           type: FindingType.Suspicious,
           metadata: {
-            scamAddresses: [createAddress("0x5050")],
+            scamAddress: createAddress("0x215050"),
             scamDomains: ["www.scamDomain.com"],
             msgSender: spender,
             spender: createAddress("0x23325050"),
