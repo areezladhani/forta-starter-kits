@@ -1803,7 +1803,7 @@ describe("ice-phishing bot", () => {
 
       expect(findings).toStrictEqual([
         Finding.fromObject({
-          name: "Suspicious contract was involved in an asset transfer",
+          name: "Suspicious contract (creator) was involved in an asset transfer",
           description: `${createAddress("0x12331")} transferred assets from ${owner1} to ${suspiciousReceiver}`,
           alertId: "ICE-PHISHING-SUSPICIOUS-TRANSFER",
           severity: FindingSeverity.High,
@@ -1872,7 +1872,7 @@ describe("ice-phishing bot", () => {
 
       expect(findings).toStrictEqual([
         Finding.fromObject({
-          name: "Suspicious contract was involved in an asset transfer",
+          name: "Suspicious contract (creator) was involved in an asset transfer",
           description: `${createAddress("0x12331")} transferred assets from ${owner1} to ${suspiciousContractCreator}`,
           alertId: "ICE-PHISHING-SUSPICIOUS-TRANSFER",
           severity: FindingSeverity.High,
