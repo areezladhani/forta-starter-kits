@@ -1752,11 +1752,11 @@ describe("ice-phishing bot", () => {
       mockProvider.getNetwork.mockReturnValueOnce({ chainId: "1" });
       const initialize = provideInitialize(mockProvider);
       await initialize();
-      const suspiciousSpender = createChecksumAddress("0xabcdabcd");
+      const suspiciousReceiver = createChecksumAddress("0xabcdabcd");
       const suspiciousContractCreator = createChecksumAddress("0xfefefe");
       handleBlock = provideHandleBlock(mockGetSuspiciousContracts);
       mockGetSuspiciousContracts.mockResolvedValueOnce(
-        new Set([{ address: suspiciousSpender, creator: suspiciousContractCreator }])
+        new Set([{ address: suspiciousReceiver, creator: suspiciousContractCreator }])
       );
       const mockBlockEvent = { block: { timestamp: 1000 } };
       const axiosResponse = { data: [] };
@@ -1767,13 +1767,23 @@ describe("ice-phishing bot", () => {
         filterFunction: jest.fn(),
         hash: "hash2",
         timestamp: 10000,
-        from: suspiciousSpender,
+        from: createAddress("0x12331"),
       };
+      const mockTransferEvent = {
+        address: asset,
+        name: "Transfer",
+        args: {
+          from: owner1,
+          to: suspiciousReceiver,
+          value: ethers.BigNumber.from(210),
+        },
+      };
+
       mockTxEvent.filterLog
         .mockReturnValueOnce([]) // ERC20 approvals
         .mockReturnValueOnce([]) // ERC721 approvals
         .mockReturnValueOnce([]) // ApprovalForAll
-        .mockReturnValueOnce([mockTransferEvents[0]]) // ERC20 transfers
+        .mockReturnValueOnce([mockTransferEvent]) // ERC20 transfers
         .mockReturnValueOnce([]) // ERC721 transfers
         .mockReturnValueOnce([]); // ERC1155 transfers
 
@@ -1790,15 +1800,15 @@ describe("ice-phishing bot", () => {
       expect(findings).toStrictEqual([
         Finding.fromObject({
           name: "Suspicious contract was involved in an asset transfer",
-          description: `${suspiciousSpender} transferred assets from ${owner1} to ${mockTransferEvents[0].args.to}`,
+          description: `${createAddress("0x12331")} transferred assets from ${owner1} to ${suspiciousReceiver}`,
           alertId: "ICE-PHISHING-SUSPICIOUS-TRANSFER",
           severity: FindingSeverity.High,
           type: FindingType.Suspicious,
           metadata: {
-            msgSender: suspiciousSpender,
+            msgSender: createAddress("0x12331"),
             owner: owner1,
-            receiver: mockTransferEvents[0].args.to,
-            suspiciousContract: suspiciousSpender,
+            receiver: suspiciousReceiver,
+            suspiciousContract: suspiciousReceiver,
             suspiciousContractCreator,
           },
           addresses: [asset],
