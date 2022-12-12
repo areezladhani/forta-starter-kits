@@ -306,7 +306,7 @@ function createTransferScamAlert(msgSender, owner, receiver, asset, scamAddresse
 
 function createTransferSuspiciousContractAlert(msgSender, owner, receiver, asset, suspiciousContract) {
   return Finding.fromObject({
-    name: "Suspicious contract was involved in an asset transfer",
+    name: "Suspicious contract (creator) was involved in an asset transfer",
     description: `${msgSender} transferred assets from ${owner} to ${receiver}`,
     alertId: "ICE-PHISHING-SUSPICIOUS-TRANSFER",
     severity: FindingSeverity.High,
