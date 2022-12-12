@@ -404,7 +404,11 @@ const provideHandleTransaction = (provider) => async (txEvent) => {
         if (!_approvals[spender]) continue;
         _approvals[spender].filter((a) => timestamp - a.timestamp < TIME_PERIOD);
       }
-      if (spenderType === AddressType.ScamAddress || spenderType === AddressType.LowNumTxsVerifiedContract) {
+      if (
+        spenderType === AddressType.ScamAddress ||
+        spenderType === AddressType.LowNumTxsVerifiedContract ||
+        spenderType === AddressType.LowNumTxsUnverifiedContract
+      ) {
         const scamSnifferDB = await axios.get(
           "https://raw.githubusercontent.com/scamsniffer/scam-database/main/blacklist/combined.json"
         );
