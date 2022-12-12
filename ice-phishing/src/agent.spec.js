@@ -1711,6 +1711,10 @@ describe("ice-phishing bot", () => {
       const mockBlockEvent = { block: { timestamp: 1000 } };
       const axiosResponse = { data: [spender] };
       axios.get.mockResolvedValueOnce(axiosResponse);
+      handleBlock = provideHandleBlock(mockGetSuspiciousContracts);
+      mockGetSuspiciousContracts.mockResolvedValueOnce(
+        new Set([{ address: createAddress("0xabcdabcd"), creator: createAddress("0xeeffeeff") }])
+      );
       await handleBlock(mockBlockEvent);
 
       mockTxEvent.filterLog
@@ -1809,6 +1813,75 @@ describe("ice-phishing bot", () => {
             owner: owner1,
             receiver: suspiciousReceiver,
             suspiciousContract: suspiciousReceiver,
+            suspiciousContractCreator,
+          },
+          addresses: [asset],
+        }),
+      ]);
+    });
+
+    it("should return findings if a creator of a suspicious contract is involved in a transfer", async () => {
+      resetInit();
+      mockProvider.getNetwork.mockReturnValueOnce({ chainId: "1" });
+      const initialize = provideInitialize(mockProvider);
+      await initialize();
+      const suspiciousContract = createChecksumAddress("0xabcdabcd");
+      const suspiciousContractCreator = createChecksumAddress("0xfefefe");
+      handleBlock = provideHandleBlock(mockGetSuspiciousContracts);
+      mockGetSuspiciousContracts.mockResolvedValueOnce(
+        new Set([{ address: suspiciousContract, creator: suspiciousContractCreator }])
+      );
+      const mockBlockEvent = { block: { timestamp: 1000 } };
+      const axiosResponse = { data: [] };
+      axios.get.mockResolvedValueOnce(axiosResponse);
+      await handleBlock(mockBlockEvent);
+      const mockTxEvent = {
+        filterLog: jest.fn(),
+        filterFunction: jest.fn(),
+        hash: "hash2",
+        timestamp: 10000,
+        from: createAddress("0x12331"),
+      };
+      const mockTransferEvent = {
+        address: asset,
+        name: "Transfer",
+        args: {
+          from: owner1,
+          to: suspiciousContractCreator,
+          value: ethers.BigNumber.from(210),
+        },
+      };
+
+      mockTxEvent.filterLog
+        .mockReturnValueOnce([]) // ERC20 approvals
+        .mockReturnValueOnce([]) // ERC721 approvals
+        .mockReturnValueOnce([]) // ApprovalForAll
+        .mockReturnValueOnce([mockTransferEvent]) // ERC20 transfers
+        .mockReturnValueOnce([]) // ERC721 transfers
+        .mockReturnValueOnce([]); // ERC1155 transfers
+
+      mockTxEvent.filterFunction.mockReturnValueOnce([]).mockReturnValueOnce([]);
+      mockProvider.getCode.mockReturnValue("0x333");
+
+      const axiosResponse2 = {
+        data: { message: "okkk", status: "1", result: [{ contractCreator: createAddress("0xaaaabbb") }] },
+      };
+      axios.get.mockResolvedValue(axiosResponse2);
+
+      const findings = await handleTransaction(mockTxEvent);
+
+      expect(findings).toStrictEqual([
+        Finding.fromObject({
+          name: "Suspicious contract was involved in an asset transfer",
+          description: `${createAddress("0x12331")} transferred assets from ${owner1} to ${suspiciousContractCreator}`,
+          alertId: "ICE-PHISHING-SUSPICIOUS-TRANSFER",
+          severity: FindingSeverity.High,
+          type: FindingType.Suspicious,
+          metadata: {
+            msgSender: createAddress("0x12331"),
+            owner: owner1,
+            receiver: suspiciousContractCreator,
+            suspiciousContract: suspiciousContract,
             suspiciousContractCreator,
           },
           addresses: [asset],
