@@ -2,7 +2,7 @@
 
 ## Description
 
-This bot detects if an account (EOA with low nonce or unverified contract with low number of transactions) gains a high number of approvals or an ERC20 permission and if it transfers the approved funds. It also does the same checks for EOAs with high nonce or verified contracts with low number of transactions and emits an alert of lower severity. Lastly, it checks if an account from the [ScamSniffer DB](https://github.com/scamsniffer/scam-database) or a contract (creator) from a [Malicious Smart Contract ML Bot v2](https://explorer.forta.network/bot/0x0b241032ca430d9c02eaa6a52d217bbff046f0d1b3f3d2aa928e42a97150ec91) alert is involved in an `Approval`/`Transfer`/`permit`.
+This bot detects if an account (EOA with low nonce or unverified contract with low number of transactions) gains a high number of approvals or an ERC20 permission and if it transfers the approved funds. It also does the same checks for EOAs with high nonce or verified contracts with low number of transactions and emits an alert of lower severity. Lastly, it checks if an account from the [ScamSniffer DB](https://github.com/scamsniffer/scam-database) or a contract, or contract creator, from a [Malicious Smart Contract ML Bot v2](https://explorer.forta.network/bot/0x0b241032ca430d9c02eaa6a52d217bbff046f0d1b3f3d2aa928e42a97150ec91) alert is involved in an `Approval`/`Transfer`/`permit`.
 
 > The `permit` function signatures detected by the bot are from EIP-2612 and MakerDAO's DAI.
 
