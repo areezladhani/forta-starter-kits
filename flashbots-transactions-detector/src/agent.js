@@ -15,6 +15,10 @@ const { fetch, Headers } = require("node-fetch");
 const { existsSync, readFileSync, writeFileSync } = require("fs");
 const { getAlerts } = require("forta-agent");
 const { AlertsResponse } = require("forta-agent/dist/sdk/graphql/forta");
+const LRU = require("lru-cache");
+
+const cachedFindings = new LRU({ max: 100_000 });
+let findingsCounter = 0;
 
 const flashbotsUrl = "https://blocks.flashbots.net/v1/blocks?limit=10";
 let lastBlockNumber = 0;
@@ -27,50 +31,49 @@ const TOTAL_TXNS_KEY = "nm-flashbots-bot-total-txns-key";
 let totalFlashbotsTxns, totalTxns;
 let MostRecTxHash;
 
-//Commented out the initialize functions for now as it takes too long
-
 function provideInitialize(provider, botsDep) {
   return async function initialize() {
     totalFlashbotsTxns = await load(TOTAL_FLASHBOTS_TXNS_KEY);
 
     //if we DON’T have access to the DB from Forta
+    // we first check if the totalFlashbotsTxns is null
+    // if yes then this is the first time we are running the bot and have to populate the db
+    // to get the totalFlashbotTxns we use the getAlerts method and iterate through all the pages
     if (totalFlashbotsTxns == null) {
-      totalFlashbotsTxns = 0;
+      totalFlashbotsTxns = 7; // temp number while testing
 
       /*
       //use the getAlerts method
       let hasNext = true;
-
+      let startingCursor = undefined;
       while (hasNext) {
         const results = await getAlerts({
           botIds: ["0xbc06a40c341aa1acc139c900fd1b7e3999d71b80c13a9dd50a369d8f923757f5"],
         });
         hasNext = results.pageInfo.hasNextPage;
+        startingCursor = results.pageInfo.endCursor;
 
         totalFlashbotsTxns += results.alerts.length;
         console.log(`alerts in page: ${results.alerts.length} `);
         console.log(`totalFlashbotsTxns: ${totalFlashbotsTxns} `);
+       
       }
-
-     
-
-      const results = await getAlerts({
-        botIds: ["0xbc06a40c341aa1acc139c900fd1b7e3999d71b80c13a9dd50a369d8f923757f5"],
-      });
-      MostRecTxHash = results.alerts[0].metadata.hash;
-      console.log(`most recent hash: ${MostRecTxHash}`);
-
-        */
+       */
     }
 
     totalTxns = await load(TOTAL_TXNS_KEY);
 
     const currBlock = await provider.getBlockNumber();
-    //if we DON’T have access to the DB from Forta
-    if (totalTxns == null) {
-      totalTxns = 0;
 
-      /*
+    //if we DON’T have access to the DB from Forta
+    // we check if the totalTxns is null
+    // if yes then this is the first time we are running the bot and have to populate the db
+    // to get the totalTxns we use the getAlertsgetBlockWithTransactions and start from when the bot went live
+    // all the way to the currentblock -1
+    totalTxns = 10; // temp number while testing
+
+    /*
+
       //use the getBlockWithTransactions method
       for (let x = botsDep; x <= currBlock; x++) {
         const getBlock = await provider.getBlockWithTransactions(x);
@@ -79,13 +82,11 @@ function provideInitialize(provider, botsDep) {
         console.log(`totalTxns: ${totalTxns} `);
         totalTxns += numOfTxs;
       }
-       */
-    }
+          */
   };
 }
 
 async function load(key) {
-  console.log("start");
   if (process.env.hasOwnProperty("LOCAL_NODE")) {
     const token = await fetchJwt({});
     // Don't have documentation to check if this the header needed
@@ -143,31 +144,61 @@ function provideHandleBlock(getTransactionReceipt) {
     }
 
     const { blocks } = result.data;
+    let y;
+    while (y < 2) {
+      if (cachedFindings.has(y)) {
+        cachedFindings.delete(y);
+      }
+      y++;
+    }
 
+    /*
     if (blockEvent.blockNumber % 240 === 0) {
+      console.log("hit target");
       persist(totalFlashbotsTxns, TOTAL_FLASHBOTS_TXNS_KEY);
       persist(totalTxns, TOTAL_TXNS_KEY);
     }
+    */
+    const numOfTxs = blockEvent.block.transactions.length;
+    totalTxns += numOfTxs;
 
     // Get findings for every new flashbots block and combine them
     let findings = await Promise.all(
       blocks.map(async (block) => {
         const { transactions, block_number: blockNumber } = block;
         let currentBlockFindings;
-
         // Only process blocks that aren't processed
         if (blockNumber > lastBlockNumber) {
+          /*
+          const numOfTxs = blockEvent.block.transactions.length;
+          totalTxns += numOfTxs;
+          console.log(`txs in block = ${numOfTxs}`);
+          const AnomScore = totalFlashbotsTxns / totalTxns;
+          */
+
+          //console.log(`tx: ${transactions.length}`);
+
+          //console.log(`txs in block = ${numOfTxs}`);
+          //const txsRoot = blockEvent.block.transactionsRoot;
+          //console.log(`txs root = ${txsRoot}`);
           // Create finding for every flashbots transaction in the block
           currentBlockFindings = await Promise.all(
             transactions
               .filter((transaction) => transaction.bundle_type !== "mempool")
               .map(async (transaction) => {
                 const { eoa_address: from, to_address: to, transaction_hash: hash } = transaction;
+
                 // Use the tx logs to get the impacted contracts
                 const { logs } = await getTransactionReceipt(hash);
                 let addresses = logs.map((log) => log.address.toLowerCase());
                 addresses = [...new Set(addresses)];
+                totalFlashbotsTxns += 1;
+
                 const AnomScore = totalFlashbotsTxns / totalTxns;
+                //console.log(`anom score: ${AnomScore}`);
+                //console.log(`totalFbTxns: ${totalFlashbotsTxns}`);
+                //console.log(`totalTxns: ${totalTxns}`);
+                //console.log(`blockNumber ${blockNumber}`);
                 return Finding.fromObject({
                   name: "Flashbots transactions",
                   description: `${from} interacted with ${to} in a flashbots transaction`,
@@ -203,11 +234,27 @@ function provideHandleBlock(getTransactionReceipt) {
     );
 
     findings = findings.flat().filter((f) => !!f);
-    //findings = [];
-    return findings;
+    findings.forEach((finding) => {
+      cachedFindings.set(findingsCounter, finding);
+      findingsCounter++;
+    });
+
+    let blfindings = [];
+    let x;
+    while (x < 2) {
+      if (cachedFindings.has(x)) {
+        blfindings.push(cachedFindings.get(x));
+        //cachedFindings.delete(x);
+      }
+
+      x++;
+    }
+
+    return blfindings;
   };
 }
 
+/*
 function provideHandleTransaction() {
   return async function handleTransaction(txEvent) {
     const findings = [];
@@ -215,6 +262,8 @@ function provideHandleTransaction() {
 
     console.log(txEvent.transaction.hash);
     console.log(txEvent.blockNumber);
+
+    MostRecTxHash = "0x00a0ff958f99fabe8a6bde12304436ed6c43524d1ab12bced426abf3a507d939";
 
     const results = await getAlerts({
       botIds: ["0xbc06a40c341aa1acc139c900fd1b7e3999d71b80c13a9dd50a369d8f923757f5"],
@@ -233,6 +282,7 @@ function provideHandleTransaction() {
     return findings;
   };
 }
+*/
 
 module.exports = {
   provideInitialize,
@@ -242,6 +292,8 @@ module.exports = {
   resetLastBlockNumber: () => {
     lastBlockNumber = 0;
   }, // Exported for unit tests
+  /*
   provideHandleTransaction,
   handleTransaction: provideHandleTransaction(),
+  */
 };
